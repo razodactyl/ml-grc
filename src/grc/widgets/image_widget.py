@@ -133,17 +133,48 @@ class ImageWidget(QLabel):
 
         # Don't auto-load any image initially - wait for explicit loading
 
+    def sizeHint(self):
+        """Return the preferred size for the widget."""
+        if hasattr(self, 'thread') and self.thread.base_image and not self.thread.base_image.isNull():
+            return self.thread.base_image.size()
+        return super().sizeHint()
+
+    def minimumSizeHint(self):
+        """Return the minimum size for the widget."""
+        return self.sizeHint()
+
+    def resizeEvent(self, event):
+        """Handle widget resize events."""
+        super().resizeEvent(event)
+
+        # If we have an image loaded, ensure widget matches image size
+        if hasattr(self, 'thread') and self.thread.base_image and not self.thread.base_image.isNull():
+            image_size = self.thread.base_image.size()
+            if self.size() != image_size:
+                # Resize to match image
+                self.resize(image_size)
+                self.updateGeometry()
+
+        # Update geometry when widget is resized
+        self.updateGeometry()
+
     def load_image(self, image_path):
         """Load an image from the given path."""
         if os.path.exists(image_path):
             print(f"Loading image: {image_path}")
             self.thread.load_image(image_path)
+            # Update widget size to match image
+            if hasattr(self, 'thread') and self.thread.base_image and not self.thread.base_image.isNull():
+                self.updateGeometry()
         else:
             print(f"Image not found: {image_path}")
 
     def mouseMoveEvent(self, event):
         mouse_x = event.pos().x()
         mouse_y = event.pos().y()
+
+        # Map mouse coordinates to image coordinates
+        image_mouse_x, image_mouse_y = self._map_to_image_coordinates(mouse_x, mouse_y)
 
         if self.state.dragging and self.state.drag_mode:
             boxes = self.state.bounding_boxes
@@ -152,12 +183,17 @@ class ImageWidget(QLabel):
                 # Handle box movement
                 box = boxes[self.state.drag_box_index]
                 if box.selected:
-                    dx = mouse_x - self.state.drag_start_pos[0]
-                    dy = mouse_y - self.state.drag_start_pos[1]
+                    # Map drag start position to image coordinates
+                    start_x, start_y = self._map_to_image_coordinates(
+                        self.state.drag_start_pos[0], self.state.drag_start_pos[1]
+                    )
 
-                    # Update box position
-                    box.x = max(0, box.x + dx)
-                    box.y = max(0, box.y + dy)
+                    dx = image_mouse_x - start_x
+                    dy = image_mouse_y - start_y
+
+                    # Update box position (ensure integer coordinates)
+                    box.x = max(0, int(box.x + dx))
+                    box.y = max(0, int(box.y + dy))
 
                     # Update drag start position for smooth dragging
                     self.state = self.state._replace(drag_start_pos=[mouse_x, mouse_y])
@@ -166,36 +202,41 @@ class ImageWidget(QLabel):
                 # Handle box resizing
                 box = boxes[self.state.drag_box_index]
                 if box.selected and self.state.drag_handle:
-                    dx = mouse_x - self.state.drag_start_pos[0]
-                    dy = mouse_y - self.state.drag_start_pos[1]
+                    # Map drag start position to image coordinates
+                    start_x, start_y = self._map_to_image_coordinates(
+                        self.state.drag_start_pos[0], self.state.drag_start_pos[1]
+                    )
+
+                    dx = image_mouse_x - start_x
+                    dy = image_mouse_y - start_y
 
                     # Resize based on handle
                     if self.state.drag_handle == 'nw':
-                        box.x = max(0, box.x + dx)
-                        box.y = max(0, box.y + dy)
-                        box.w = max(10, box.w - dx)
-                        box.h = max(10, box.h - dy)
+                        box.x = max(0, int(box.x + dx))
+                        box.y = max(0, int(box.y + dy))
+                        box.w = max(10, int(box.w - dx))
+                        box.h = max(10, int(box.h - dy))
                     elif self.state.drag_handle == 'ne':
-                        box.y = max(0, box.y + dy)
-                        box.w = max(10, box.w + dx)
-                        box.h = max(10, box.h - dy)
+                        box.y = max(0, int(box.y + dy))
+                        box.w = max(10, int(box.w + dx))
+                        box.h = max(10, int(box.h - dy))
                     elif self.state.drag_handle == 'sw':
-                        box.x = max(0, box.x + dx)
-                        box.w = max(10, box.w - dx)
-                        box.h = max(10, box.h + dy)
+                        box.x = max(0, int(box.x + dx))
+                        box.w = max(10, int(box.w - dx))
+                        box.h = max(10, int(box.h + dy))
                     elif self.state.drag_handle == 'se':
-                        box.w = max(10, box.w + dx)
-                        box.h = max(10, box.h + dy)
+                        box.w = max(10, int(box.w + dx))
+                        box.h = max(10, int(box.h + dy))
                     elif self.state.drag_handle == 'n':
-                        box.y = max(0, box.y + dy)
-                        box.h = max(10, box.h - dy)
+                        box.y = max(0, int(box.y + dy))
+                        box.h = max(10, int(box.h - dy))
                     elif self.state.drag_handle == 's':
-                        box.h = max(10, box.h + dy)
+                        box.h = max(10, int(box.h + dy))
                     elif self.state.drag_handle == 'e':
-                        box.w = max(10, box.w + dx)
+                        box.w = max(10, int(box.w + dx))
                     elif self.state.drag_handle == 'w':
-                        box.x = max(0, box.x + dx)
-                        box.w = max(10, box.w - dx)
+                        box.x = max(0, int(box.x + dx))
+                        box.w = max(10, int(box.w - dx))
 
                     # Update drag start position
                     self.state = self.state._replace(drag_start_pos=[mouse_x, mouse_y])
@@ -204,14 +245,17 @@ class ImageWidget(QLabel):
             self.thread.render(self.state)
         else:
             # Update cursor based on what's under the mouse
-            self.update_cursor(event.pos().x(), event.pos().y())
+            self.update_cursor(mouse_x, mouse_y)
 
-        self.state = self.state._replace(mouse_pos=[event.pos().x(), event.pos().y()])
+        self.state = self.state._replace(mouse_pos=[mouse_x, mouse_y])
         self.thread.render(self.state)
 
     def mousePressEvent(self, event):
         mouse_x = event.pos().x()
         mouse_y = event.pos().y()
+
+        # Map mouse coordinates to image coordinates
+        image_mouse_x, image_mouse_y = self._map_to_image_coordinates(mouse_x, mouse_y)
 
         # event.buttons() => bitmask of ALL buttons - i.e we can perform multi click etc.
         if event.buttons() & Qt.LeftButton:
@@ -225,7 +269,7 @@ class ImageWidget(QLabel):
             if not ctrl_pressed:
                 for i, box in enumerate(boxes):
                     if box.selected:
-                        handle = box.get_resize_handle_at_point(mouse_x, mouse_y)
+                        handle = box.get_resize_handle_at_point(image_mouse_x, image_mouse_y)
                         if handle:
                             # Start resize operation
                             self.state = self.state._replace(
@@ -242,7 +286,7 @@ class ImageWidget(QLabel):
                 # Check for box selection or dragging
                 selected_any = False
                 for box in boxes:
-                    if box.xy_in_bounds(mouse_x, mouse_y):
+                    if box.xy_in_bounds(image_mouse_x, image_mouse_y):
                         if ctrl_pressed:
                             # Multi-selection mode: toggle selection of clicked box
                             box.selected = not box.selected
@@ -295,10 +339,18 @@ class ImageWidget(QLabel):
 
                 bounding_boxes = self.state.bounding_boxes
 
-                x1 = self.state.drag_start_pos[0]
-                x2 = self.state.drag_end_pos[0]
-                y1 = self.state.drag_start_pos[1]
-                y2 = self.state.drag_end_pos[1]
+                # Map mouse coordinates to image coordinates for annotation creation
+                start_x, start_y = self._map_to_image_coordinates(
+                    self.state.drag_start_pos[0], self.state.drag_start_pos[1]
+                )
+                end_x, end_y = self._map_to_image_coordinates(
+                    event.pos().x(), event.pos().y()
+                )
+
+                x1 = int(start_x)
+                x2 = int(end_x)
+                y1 = int(start_y)
+                y2 = int(end_y)
 
                 # Normalize coordinates (remove difference between start corner and end corner):
                 # top left, bottom right => x,y,w,h
@@ -335,12 +387,15 @@ class ImageWidget(QLabel):
     def update_cursor(self, mouse_x, mouse_y):
         """Update cursor based on what's under the mouse."""
         if not self.state.dragging:
+            # Map mouse coordinates to image coordinates
+            image_mouse_x, image_mouse_y = self._map_to_image_coordinates(mouse_x, mouse_y)
+
             boxes = self.state.bounding_boxes
 
             # Check if over resize handles first
             for box in boxes:
                 if box.selected:
-                    handle = box.get_resize_handle_at_point(mouse_x, mouse_y)
+                    handle = box.get_resize_handle_at_point(image_mouse_x, image_mouse_y)
                     if handle:
                         if handle in ['nw', 'se']:
                             self.setCursor(QCursor(Qt.SizeFDiagCursor))  # Diagonal resize
@@ -354,12 +409,45 @@ class ImageWidget(QLabel):
 
             # Check if over selected boxes for moving
             for box in boxes:
-                if box.selected and box.xy_in_bounds(mouse_x, mouse_y):
+                if box.selected and box.xy_in_bounds(image_mouse_x, image_mouse_y):
                     self.setCursor(QCursor(Qt.SizeAllCursor))  # Move cursor
                     return
 
             # Default cursor
             self.setCursor(QCursor(Qt.CrossCursor))
+
+    def _map_to_image_coordinates(self, mouse_x, mouse_y):
+        """
+        Map mouse coordinates from widget space to image space.
+
+        Args:
+            mouse_x (int): Mouse X coordinate in widget space
+            mouse_y (int): Mouse Y coordinate in widget space
+
+        Returns:
+            tuple: (image_x, image_y) coordinates in image space as integers
+        """
+        if not hasattr(self, 'thread') or not self.thread.base_image or self.thread.base_image.isNull():
+            return int(mouse_x), int(mouse_y)
+
+        image_width = self.thread.base_image.width()
+        image_height = self.thread.base_image.height()
+        widget_width = self.width()
+        widget_height = self.height()
+
+        # Calculate scaling factors
+        scale_x = image_width / widget_width if widget_width > 0 else 1.0
+        scale_y = image_height / widget_height if widget_height > 0 else 1.0
+
+        # Map to image coordinates
+        image_x = mouse_x * scale_x
+        image_y = mouse_y * scale_y
+
+        # Clamp to image bounds
+        image_x = max(0, min(image_width, image_x))
+        image_y = max(0, min(image_height, image_y))
+
+        return int(image_x), int(image_y)
 
     def keyPressEvent(self, event):
         """Handle keyboard events."""
@@ -392,7 +480,8 @@ class ImageWidget(QLabel):
             painter.drawText(self.rect(), Qt.AlignCenter, "No image loaded...")
             return
 
-        painter.drawPixmap(QPoint(), self.pixmap)
+        # Scale and draw the pixmap to fill the widget
+        painter.drawPixmap(self.rect(), self.pixmap)
 
     def updatePixmap(self, image):
         self.pixmap = QPixmap.fromImage(image)

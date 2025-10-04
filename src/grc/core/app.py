@@ -4,14 +4,16 @@ Main application class for GRC.
 
 import os
 import sys
-from PyQt5.QtWidgets import QMainWindow, QFileDialog, QDesktopWidget, QPushButton
+from PyQt5.QtWidgets import QApplication, QMainWindow, QFileDialog, QTabWidget, QDesktopWidget
+from PyQt5.QtCore import Qt
 
 from ..widgets.table_widget import TableWidget
-from ..widgets.image_widget import ImageWidget
-from ..widgets.image_controls import ImageControlsWidget
 from ..widgets.file_list_widget import FileListWidget
 from ..widgets.class_list_widget import ClassListWidget
-from ..core.bounding_box import BoundingBox
+from ..widgets.image_widget import ImageWidget
+from ..widgets.image_controls import ImageControlsWidget
+from .annotation_formats import AnnotationFormatManager
+from .bounding_box import BoundingBox
 
 
 class App(QMainWindow):
@@ -19,19 +21,19 @@ class App(QMainWindow):
     
     def __init__(self):
         super().__init__()
-
         self.title = "Glorified Rectangle Creator"
         self.setWindowTitle(self.title)
 
         self.data_dir = ""
         self.current_image_index = 0
-        self.image_files = []
-
         self.left = 0
         self.top = 0
         self.width = 1024
         self.height = 768
         self.setGeometry(self.left, self.top, self.width, self.height)
+
+        # Initialize annotation format manager
+        self.format_manager = AnnotationFormatManager()
 
         self.tab_panel = TableWidget(self)
 
@@ -50,7 +52,6 @@ class App(QMainWindow):
         self.image_panel_controls.parent_app = self
         self.tab_panel.tab2.layout.addWidget(self.image_panel)
         self.tab_panel.tab2.layout.addWidget(self.image_panel_controls)
-        
         # Connect file list to image panel
         self.file_list.dataView.clicked.connect(self.on_image_selected)
         
@@ -63,6 +64,8 @@ class App(QMainWindow):
         self.center()
 
         self.show()
+
+        # Format selector will be updated when format is set
 
     def center(self):
         """Center the application window on the screen."""
@@ -121,59 +124,35 @@ class App(QMainWindow):
             self.load_annotations_for_image(image_path)
 
     def load_annotations_for_image(self, image_path):
-        """Load annotations for the given image."""
+        """Load annotations for the given image using format manager."""
         try:
-            # Create annotations directory if it doesn't exist
-            image_dir = os.path.dirname(image_path)
-            annotations_dir = os.path.join(image_dir, "annotations")
-            os.makedirs(annotations_dir, exist_ok=True)
+            # Get image dimensions for format conversion
+            image_width = 800  # Default width, should be updated when image loads
+            image_height = 600  # Default height, should be updated when image loads
 
-            # Get image filename without extension
-            image_name = os.path.splitext(os.path.basename(image_path))[0]
-            annotation_file = os.path.join(annotations_dir, f"{image_name}.txt")
+            # Check if image panel has the actual dimensions
+            if hasattr(self.image_panel, 'thread') and self.image_panel.thread.base_image:
+                if not self.image_panel.thread.base_image.isNull():
+                    image_width = self.image_panel.thread.base_image.width()
+                    image_height = self.image_panel.thread.base_image.height()
 
-            # Clear existing bounding boxes
+            # Use format manager to load annotations from current format
+            annotation_path = self.format_manager.get_annotation_path(image_path, self.format_manager.default_format)
+            format_handler = self.format_manager.get_format(self.format_manager.default_format)
+            
+            print(f"Loading annotations from {annotation_path} (format: {self.format_manager.default_format})")
+            bounding_boxes = format_handler.load(annotation_path, image_width, image_height)
+
+            # Clear existing bounding boxes and update with loaded ones
             if hasattr(self.image_panel, 'state') and self.image_panel.state:
                 # Create new state with empty bounding boxes
-                from ..core.state import make_default_state
+                from .state import make_default_state
                 new_state = make_default_state()
-                # Copy over any existing properties but clear bounding boxes
-                new_state = new_state._replace(bounding_boxes=[])
+                # Copy over any existing properties but set loaded bounding boxes
+                new_state = new_state._replace(bounding_boxes=bounding_boxes)
                 self.image_panel.state = new_state
 
-            # Load annotations if file exists
-            if os.path.exists(annotation_file):
-                print(f"Loading annotations from: {annotation_file}")
-                with open(annotation_file, 'r') as f:
-                    bounding_boxes = []
-                    for line_num, line in enumerate(f, 1):
-                        line = line.strip()
-                        if not line or line.startswith('#'):
-                            continue
-
-                        parts = line.split()
-                        if len(parts) >= 5:
-                            try:
-                                class_id = int(parts[0])
-                                x = int(parts[1])
-                                y = int(parts[2])
-                                w = int(parts[3])
-                                h = int(parts[4])
-                                class_name = parts[5] if len(parts) > 5 else f"Class_{class_id}"
-
-                                # Create bounding box
-                                box = BoundingBox(x=x, y=y, w=w, h=h, class_id=class_id, class_name=class_name)
-                                bounding_boxes.append(box)
-
-                            except (ValueError, IndexError) as e:
-                                print(f"Warning: Invalid annotation format at line {line_num}: {line}")
-                                continue
-
-                    # Update the image panel state with loaded annotations
-                    if hasattr(self.image_panel, 'state') and self.image_panel.state:
-                        self.image_panel.state = self.image_panel.state._replace(bounding_boxes=bounding_boxes)
-
-                    print(f"Loaded {len(bounding_boxes)} annotations for {image_name}")
+            print(f"Loaded {len(bounding_boxes)} annotations for {os.path.basename(image_path)}")
 
             # Re-render the image
             if hasattr(self.image_panel, 'thread') and self.image_panel.thread:
@@ -183,7 +162,7 @@ class App(QMainWindow):
             print(f"Error loading annotations for {image_path}: {e}")
 
     def save_annotations_for_current_image(self):
-        """Save annotations for the current image."""
+        """Save annotations for the current image using format manager."""
         try:
             if not self.image_files or self.current_image_index >= len(self.image_files):
                 print("No current image to save annotations for")
@@ -191,14 +170,15 @@ class App(QMainWindow):
 
             current_image_path = self.image_files[self.current_image_index]
 
-            # Create annotations directory if it doesn't exist
-            image_dir = os.path.dirname(current_image_path)
-            annotations_dir = os.path.join(image_dir, "annotations")
-            os.makedirs(annotations_dir, exist_ok=True)
+            # Get image dimensions for format conversion
+            image_width = 800  # Default width
+            image_height = 600  # Default height
 
-            # Get image filename without extension
-            image_name = os.path.splitext(os.path.basename(current_image_path))[0]
-            annotation_file = os.path.join(annotations_dir, f"{image_name}.txt")
+            # Check if image panel has the actual dimensions
+            if hasattr(self.image_panel, 'thread') and self.image_panel.thread.base_image:
+                if not self.image_panel.thread.base_image.isNull():
+                    image_width = self.image_panel.thread.base_image.width()
+                    image_height = self.image_panel.thread.base_image.height()
 
             # Get current bounding boxes
             if not hasattr(self.image_panel, 'state') or not self.image_panel.state:
@@ -207,16 +187,10 @@ class App(QMainWindow):
 
             bounding_boxes = self.image_panel.state.bounding_boxes
 
-            # Save annotations to file
-            with open(annotation_file, 'w') as f:
-                f.write(f"# Annotations for {image_name}\n")
-                f.write("# Format: class_id x y width height class_name\n")
-
-                for box in bounding_boxes:
-                    if hasattr(box, 'class_id') and hasattr(box, 'class_name'):
-                        f.write(f"{box.class_id} {box.x} {box.y} {box.w} {box.h} {box.class_name}\n")
-
-            print(f"Saved {len(bounding_boxes)} annotations to: {annotation_file}")
+            # Use format manager to save annotations
+            self.format_manager.save_annotations(
+                current_image_path, bounding_boxes, image_width, image_height
+            )
 
         except Exception as e:
             print(f"Error saving annotations: {e}")
@@ -230,11 +204,136 @@ class App(QMainWindow):
 
             current_image_path = self.image_files[self.current_image_index]
             print(f"Reloading annotations for: {current_image_path}")
+            
+            # Force reload from current format specifically
             self.load_annotations_for_image(current_image_path)
 
         except Exception as e:
             print(f"Error reloading annotations: {e}")
 
+    def set_annotation_format(self, format_name):
+        """Set the annotation format and handle annotation loading with user confirmation."""
+        from PyQt5.QtWidgets import QMessageBox
+        
+        old_format = self.format_manager.default_format
+        
+        # If format hasn't changed, do nothing
+        if old_format == format_name:
+            return
+            
+        self.format_manager.set_default_format(format_name)
+
+        # If we have a current image, handle format switching
+        if self.image_files and self.current_image_index < len(self.image_files):
+            current_image_path = self.image_files[self.current_image_index]
+            print(f"Switching format from {old_format} to {format_name}")
+
+            # Check if there are current annotations in memory
+            current_boxes = self.image_panel.state.bounding_boxes if hasattr(self.image_panel, 'state') else []
+            
+            # Check if annotation file exists in new format
+            new_format_path = self.format_manager.get_annotation_path(current_image_path, format_name)
+            new_format_exists = os.path.exists(new_format_path)
+            
+            if current_boxes and new_format_exists:
+                # Both current annotations and new format file exist - ask user what to do
+                reply = QMessageBox.question(
+                    self,
+                    'Format Switch',
+                    f'You have {len(current_boxes)} annotation(s) in memory.\n\n'
+                    f'An annotation file exists in {format_name.upper()} format.\n\n'
+                    f'What would you like to do?\n\n'
+                    f'• Yes: Load annotations from {format_name.upper()} file (discard current)\n'
+                    f'• No: Keep current annotations (can save to {format_name.upper()} later)\n'
+                    f'• Cancel: Revert to {old_format.upper()} format',
+                    QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel,
+                    QMessageBox.No
+                )
+                
+                if reply == QMessageBox.Cancel:
+                    # Revert format change
+                    self.format_manager.set_default_format(old_format)
+                    # Update UI to reflect reverted format
+                    if hasattr(self, 'image_panel_controls') and hasattr(self.image_panel_controls, 'formatSelect'):
+                        self.image_panel_controls.formatSelect.blockSignals(True)
+                        self.image_panel_controls.formatSelect.setCurrentText(old_format.upper())
+                        self.image_panel_controls.formatSelect.blockSignals(False)
+                    print(f"Format change cancelled, staying with {old_format}")
+                    return
+                elif reply == QMessageBox.Yes:
+                    # Load from new format file
+                    print(f"Loading annotations from {format_name} file")
+                    self.load_annotations_for_image(current_image_path)
+                else:  # QMessageBox.No - Keep current annotations
+                    # Ask if they want to merge with file annotations
+                    merge_reply = QMessageBox.question(
+                        self,
+                        'Merge Annotations?',
+                        f'Would you like to also load and merge the annotations from the {format_name.upper()} file?\n\n'
+                        f'This will add {len(current_boxes)} current annotations + annotations from file.',
+                        QMessageBox.Yes | QMessageBox.No,
+                        QMessageBox.Yes
+                    )
+                    
+                    if merge_reply == QMessageBox.Yes:
+                        # Load annotations from new format file for merging
+                        print(f"Loading and merging annotations from {format_name} file")
+                        
+                        # Get image dimensions for format conversion
+                        image_width = 800  # Default width
+                        image_height = 600  # Default height
+
+                        # Check if image panel has the actual dimensions
+                        if hasattr(self.image_panel, 'thread') and self.image_panel.thread.base_image:
+                            if not self.image_panel.thread.base_image.isNull():
+                                image_width = self.image_panel.thread.base_image.width()
+                                image_height = self.image_panel.thread.base_image.height()
+
+                        # Load annotations from the new format file
+                        format_handler = self.format_manager.get_format(format_name)
+                        file_annotations = format_handler.load(new_format_path, image_width, image_height)
+                        
+                        if file_annotations:
+                            # Merge file annotations with current annotations
+                            merged_boxes = current_boxes + file_annotations
+                            self.image_panel.state = self.image_panel.state._replace(bounding_boxes=merged_boxes)
+                            self.image_panel.thread.render(self.image_panel.state)
+                            print(f"Merged {len(file_annotations)} file annotations with {len(current_boxes)} current annotations = {len(merged_boxes)} total")
+                        else:
+                            print("No annotations loaded from file for merging")
+                    else:
+                        # Just keep current annotations
+                        print(f"Keeping current annotations, format switched to {format_name}")
+                    
+            elif current_boxes and not new_format_exists:
+                # Current annotations exist but no file in new format - ask if they want to keep them
+                reply = QMessageBox.question(
+                    self,
+                    'Format Switch',
+                    f'You have {len(current_boxes)} annotation(s) in memory.\n\n'
+                    f'No annotation file exists in {format_name.upper()} format.\n\n'
+                    f'Keep current annotations?\n\n'
+                    f'• Yes: Keep annotations (can save to {format_name.upper()} later)\n'
+                    f'• No: Clear annotations',
+                    QMessageBox.Yes | QMessageBox.No,
+                    QMessageBox.Yes
+                )
+                
+                if reply == QMessageBox.No:
+                    # Clear annotations
+                    self.image_panel.state = self.image_panel.state._replace(bounding_boxes=[])
+                    self.image_panel.thread.render(self.image_panel.state)
+                    print("Annotations cleared")
+                else:
+                    print(f"Keeping current annotations, format switched to {format_name}")
+                    
+            elif not current_boxes and new_format_exists:
+                # No current annotations but file exists in new format - just load it
+                print(f"Loading annotations from {format_name} file")
+                self.load_annotations_for_image(current_image_path)
+            else:
+                # No current annotations and no file in new format - nothing to do
+                print(f"Format switched to {format_name}, no annotations to load")
     def update_classes(self, classes):
         """Update the class dropdown with loaded classes."""
         try:

@@ -39,9 +39,9 @@ class BoundingBox(object):
             y (int): Y coordinate to check
             
         Returns:
-            bool: True if point is within bounds
+            bool: True if point is within bounds (inclusive)
         """
-        return self.x < x < (self.x + self.w) and self.y < y < (self.y + self.h)
+        return self.x <= x <= (self.x + self.w) and self.y <= y <= (self.y + self.h)
 
     def get_area(self):
         """

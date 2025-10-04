@@ -16,9 +16,16 @@ class ImageControlsWidget(QWidget):
         self.saveButton = QPushButton("Save")
         self.reloadButton = QPushButton("Reload")
 
+        self.formatSelect = QComboBox(self)
+        self.formatSelect.addItem("GRC (.json)", "grc")
+        self.formatSelect.addItem("YOLO (.txt)", "yolo")
+        self.formatSelect.addItem("COCO (.json)", "coco")
+        self.formatSelect.setCurrentIndex(0)  # Default to GRC format
+        self.formatSelect.activated[str].connect(self.format_changed)
+
         self.classSelect = QComboBox(self)
         self.classSelect.addItem("Test")
-        self.classSelect.activated[str].connect(self.combo_changed)
+        self.classSelect.activated[str].connect(self.class_changed)
 
         self.prevButton.clicked.connect(self.clicked_prev)
         self.nextButton.clicked.connect(self.clicked_next)
@@ -32,6 +39,7 @@ class ImageControlsWidget(QWidget):
         hbox.addWidget(self.nextButton)
         hbox.addWidget(self.saveButton)
         hbox.addWidget(self.reloadButton)
+        hbox.addWidget(self.formatSelect)
         hbox.addWidget(self.classSelect)
 
         self.setLayout(hbox)
@@ -52,7 +60,17 @@ class ImageControlsWidget(QWidget):
         if hasattr(self, 'parent_app') and self.parent_app:
             self.parent_app.reload_annotations_for_current_image()
 
-    def combo_changed(self, text):
+    def format_changed(self, text):
+        """Handle format selection change."""
+        format_name = self.formatSelect.currentData()
+        print(f"Format changed to: {format_name}")
+        if hasattr(self, 'parent_app') and self.parent_app:
+            self.parent_app.set_annotation_format(format_name)
+        else:
+            print("No parent app available for format change")
+
+    def class_changed(self, text):
+        """Handle class selection change."""
         print(f"Class selection changed to: {text}")
         # Forward the class change to the parent app
         if hasattr(self, 'parent_app') and self.parent_app:
