@@ -1,0 +1,209 @@
+Metadata-Version: 2.4
+Name: grc
+Version: 1.0.0
+Summary: A PyQt5-based image annotation tool for creating bounding box annotations
+Home-page: 
+Author: Jonathan
+Author-email: 
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Science/Research
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Topic :: Scientific/Engineering :: Image Recognition
+Classifier: Topic :: Software Development :: User Interfaces
+Requires-Python: >=3.6
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: numpy>=1.21.0
+Requires-Dist: opencv-contrib-python>=4.5.0
+Requires-Dist: Pillow>=8.0.0
+Requires-Dist: PyQt5>=5.15.0
+Requires-Dist: scipy>=1.7.0
+Dynamic: author
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
+
+# GRC - Glorified Rectangle Creator
+
+A PyQt5-based image annotation tool for creating bounding box annotations on images, designed for machine learning training data preparation.
+
+## Features
+
+- **Interactive Image Annotation**: Draw bounding boxes directly on images with mouse interactions
+- **Multi-tab Interface**: Separate configuration and annotation workspaces
+- **File Management**: Browse and select image directories with support for JPG, JPEG, and PNG formats
+- **Class Management**: Define and manage object classes for annotations
+- **Real-time Rendering**: Smooth, threaded rendering with live preview of annotations
+- **Cross-platform**: Works on Windows, macOS, and Linux
+
+## Quick Start
+
+### Prerequisites
+
+- Python 3.6 or higher
+- pip package manager
+
+### Installation
+
+1. **Clone the repository**:
+
+   ```bash
+   git clone <repository-url>
+   cd ml-grc
+   ```
+
+2. **Install dependencies**:
+
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+3. **Run the application**:
+   ```bash
+   python main.py
+   ```
+
+### First Steps
+
+1. **Configure your workspace**:
+
+   - Click on the "Configure" tab
+   - Use the "Files" section to select a directory containing your images
+   - Use the "Classes" section to load or define your object classes
+
+2. **Start annotating**:
+   - Switch to the "Annotate" tab
+   - The image viewer will display your images
+   - Click and drag to create bounding boxes
+   - Use the control panel to navigate between images and select classes
+
+## Detailed Usage
+
+### Configuration Tab
+
+#### File Management
+
+- **Open Directory**: Click "Open" in the Files section to select a directory containing your images
+- **Supported Formats**: JPG, JPEG, PNG
+- **File List**: View all available images in a tree structure
+
+#### Class Management
+
+- **Load Classes**: Click "Open" in the Classes section to load class definitions from text files
+- **Class Structure**: Each class should be defined with an ID and name
+
+### Annotation Tab
+
+#### Image Interaction
+
+- **Drawing Bounding Boxes**:
+  - Click and drag to create rectangular annotations
+  - Minimum area threshold prevents accidental tiny annotations
+- **Selecting Boxes**: Click on existing bounding boxes to select them
+- **Visual Feedback**: Selected boxes appear with different opacity
+
+#### Navigation Controls
+
+- **Previous/Next**: Navigate between images in your dataset
+- **Class Selection**: Choose the current class for new annotations using the dropdown
+
+### Keyboard Shortcuts
+
+- **Mouse Drag**: Create new bounding box
+- **Click**: Select existing bounding box
+- **Crosshair Cursor**: Indicates annotation mode
+
+## Technical Details
+
+### Architecture
+
+The application uses a multi-threaded architecture for smooth performance:
+
+- **Main Thread**: Handles UI interactions and user input
+- **Render Thread**: Manages image rendering and annotation overlays
+- **Thread Safety**: Uses mutexes and signals for safe inter-thread communication
+
+### File Structure
+
+```
+ml-grc/
+├── main.py                 # Main application entry point
+├── image_widget.py         # Core image display and annotation logic
+├── image_widget_controls.py # Navigation and class selection controls
+├── table_widget.py         # Tab-based interface layout
+├── file_list_widget.py     # File browser and management
+├── class_list_widget.py    # Class definition management
+├── requirements.txt        # Python dependencies
+└── README.md              # This file
+```
+
+### Dependencies
+
+- **PyQt5**: GUI framework
+- **NumPy**: Numerical operations
+- **OpenCV**: Image processing
+- **Pillow**: Image handling
+- **SciPy**: Scientific computing
+
+## Development
+
+### Running from Source
+
+1. Ensure all dependencies are installed
+2. Run `python main.py` from the project directory
+3. The application will start with a default window size of 1024x768
+
+### Customization
+
+- **Window Size**: Modify the geometry settings in `main.py`
+- **Default Image**: Change the hardcoded image path in `image_widget.py` line 166
+- **Supported Formats**: Update the `allowed_extensions` list in `file_list_widget.py`
+- **Minimum Box Size**: Adjust the area threshold in `image_widget.py` line 230
+
+## Troubleshooting
+
+### Common Issues
+
+1. **Import Errors**: Ensure all dependencies are installed via `pip install -r requirements.txt`
+2. **Image Not Loading**: Check that the hardcoded image path in `image_widget.py` exists
+3. **Performance Issues**: Large images may cause rendering delays; consider resizing images beforehand
+
+### System Requirements
+
+- **RAM**: Minimum 4GB recommended
+- **Storage**: Varies based on image dataset size
+- **Display**: Minimum 1024x768 resolution
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Test thoroughly
+5. Submit a pull request
+
+## License
+
+See LICENSE file for details.
+
+## Future Enhancements
+
+- Export annotations to common formats (COCO, YOLO, etc.)
+- Undo/redo functionality
+- Keyboard shortcuts for common actions
+- Batch processing capabilities
+- Annotation statistics and progress tracking
+- Support for additional image formats
+- Zoom and pan functionality for detailed annotation

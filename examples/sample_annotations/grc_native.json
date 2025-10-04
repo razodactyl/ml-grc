@@ -1,0 +1,128 @@
+{
+    "version": "1.0",
+    "created": "2024-10-04T00:00:00Z",
+    "dataset_name": "GRC Sample Dataset",
+    "images": [
+        {
+            "id": "street_scene",
+            "filename": "street_scene.jpg",
+            "width": 800,
+            "height": 600,
+            "annotations": [
+                {
+                    "id": "car_1",
+                    "class_id": 1,
+                    "class_name": "car",
+                    "bbox": {
+                        "x": 100,
+                        "y": 450,
+                        "width": 100,
+                        "height": 50
+                    },
+                    "confidence": 1.0,
+                    "created": "2024-10-04T00:00:00Z"
+                },
+                {
+                    "id": "car_2",
+                    "class_id": 1,
+                    "class_name": "car",
+                    "bbox": {
+                        "x": 300,
+                        "y": 450,
+                        "width": 100,
+                        "height": 50
+                    },
+                    "confidence": 1.0,
+                    "created": "2024-10-04T00:00:00Z"
+                },
+                {
+                    "id": "person_1",
+                    "class_id": 0,
+                    "class_name": "person",
+                    "bbox": {
+                        "x": 150,
+                        "y": 350,
+                        "width": 20,
+                        "height": 70
+                    },
+                    "confidence": 1.0,
+                    "created": "2024-10-04T00:00:00Z"
+                },
+                {
+                    "id": "traffic_light_1",
+                    "class_id": 8,
+                    "class_name": "traffic_light",
+                    "bbox": {
+                        "x": 700,
+                        "y": 200,
+                        "width": 20,
+                        "height": 100
+                    },
+                    "confidence": 1.0,
+                    "created": "2024-10-04T00:00:00Z"
+                }
+            ]
+        },
+        {
+            "id": "indoor_scene",
+            "filename": "indoor_scene.jpg",
+            "width": 800,
+            "height": 600,
+            "annotations": [
+                {
+                    "id": "table_1",
+                    "class_id": 10,
+                    "class_name": "table",
+                    "bbox": {
+                        "x": 100,
+                        "y": 200,
+                        "width": 200,
+                        "height": 200
+                    },
+                    "confidence": 1.0,
+                    "created": "2024-10-04T00:00:00Z"
+                },
+                {
+                    "id": "bookshelf_1",
+                    "class_id": 11,
+                    "class_name": "bookshelf",
+                    "bbox": {
+                        "x": 400,
+                        "y": 200,
+                        "width": 100,
+                        "height": 300
+                    },
+                    "confidence": 1.0,
+                    "created": "2024-10-04T00:00:00Z"
+                }
+            ]
+        }
+    ],
+    "classes": [
+        {
+            "id": 0,
+            "name": "person",
+            "color": "#FF0000"
+        },
+        {
+            "id": 1,
+            "name": "car",
+            "color": "#00FF00"
+        },
+        {
+            "id": 8,
+            "name": "traffic_light",
+            "color": "#0000FF"
+        },
+        {
+            "id": 10,
+            "name": "table",
+            "color": "#FFFF00"
+        },
+        {
+            "id": 11,
+            "name": "bookshelf",
+            "color": "#FF00FF"
+        }
+    ]
+}

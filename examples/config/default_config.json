@@ -1,0 +1,66 @@
+{
+    "application": {
+        "name": "GRC - Glorified Rectangle Creator",
+        "version": "1.0.0",
+        "window": {
+            "width": 1024,
+            "height": 768,
+            "center_on_startup": true,
+            "remember_position": true
+        }
+    },
+    "annotation": {
+        "default_class": 0,
+        "min_box_area": 20,
+        "auto_save_interval": 30,
+        "backup_enabled": true,
+        "backup_interval": 300
+    },
+    "rendering": {
+        "thread_priority": "low",
+        "update_frequency": 60,
+        "opacity": {
+            "selected_box": 0.5,
+            "unselected_box": 0.2,
+            "dragging_box": 0.2
+        },
+        "colors": {
+            "default_box": "#FF00FF",
+            "selected_box": "#00FF00",
+            "background": "#000000"
+        }
+    },
+    "file_formats": {
+        "supported_image_formats": [
+            "jpg",
+            "jpeg",
+            "png",
+            "bmp",
+            "tiff"
+        ],
+        "supported_annotation_formats": [
+            "yolo",
+            "coco",
+            "voc",
+            "grc_native"
+        ],
+        "default_export_format": "yolo"
+    },
+    "ui": {
+        "theme": "default",
+        "font_size": 12,
+        "show_grid": false,
+        "grid_size": 20,
+        "zoom_enabled": true,
+        "pan_enabled": true
+    },
+    "shortcuts": {
+        "save": "Ctrl+S",
+        "open": "Ctrl+O",
+        "new": "Ctrl+N",
+        "undo": "Ctrl+Z",
+        "redo": "Ctrl+Y",
+        "delete": "Delete",
+        "select_all": "Ctrl+A"
+    }
+}

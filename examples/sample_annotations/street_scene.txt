@@ -1,0 +1,20 @@
+# YOLO format annotations for street_scene.jpg
+# Format: class_id center_x center_y width height
+# All coordinates normalized (0.0 to 1.0)
+
+# Cars (class_id = 1)
+1 0.1875 0.7917 0.125 0.0833
+1 0.4375 0.7917 0.125 0.0833
+1 0.6875 0.7917 0.125 0.0833
+
+# People (class_id = 0)
+0 0.2 0.6417 0.025 0.1167
+0 0.45 0.6417 0.025 0.1167
+
+# Traffic Light (class_id = 8)
+8 0.9125 0.4167 0.025 0.1667
+
+# Buildings (class_id = 6)
+6 0.125 0.5 0.25 0.5
+6 0.375 0.4583 0.25 0.4167
+6 0.625 0.4667 0.25 0.4667

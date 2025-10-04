@@ -1,0 +1,36 @@
+# YOLO format annotations for abstract_shapes.jpg
+# Format: class_id center_x center_y width height
+# All coordinates normalized (0.0 to 1.0)
+
+# Red Square (class_id = 16)
+16 0.1875 0.25 0.125 0.1667
+
+# Blue Circle (class_id = 17)
+17 0.375 0.25 0.125 0.1667
+
+# Green Triangle (class_id = 18)
+18 0.5 0.25 0.125 0.1667
+
+# Yellow Rectangle (class_id = 19)
+19 0.6875 0.2083 0.125 0.0833
+
+# Purple Circle (class_id = 20)
+20 0.25 0.5833 0.125 0.1667
+
+# Orange Rectangle (class_id = 21)
+21 0.3125 0.6667 0.125 0.1667
+
+# Cyan Circle (class_id = 22)
+22 0.5625 0.5833 0.125 0.1667
+
+# Magenta Rectangle (class_id = 23)
+23 0.625 0.5 0.125 0.0833
+
+# Small Red Circle (class_id = 24)
+24 0.1375 0.85 0.025 0.0333
+
+# Small Blue Circle (class_id = 25)
+25 0.2125 0.85 0.025 0.0333
+
+# Small Green Circle (class_id = 26)
+26 0.275 0.85 0.025 0.0333

@@ -1,0 +1,182 @@
+{
+    "info": {
+        "description": "GRC Sample Dataset",
+        "version": "1.0",
+        "year": 2024,
+        "contributor": "GRC Team",
+        "date_created": "2024-10-04"
+    },
+    "licenses": [
+        {
+            "id": 1,
+            "name": "MIT",
+            "url": "https://opensource.org/licenses/MIT"
+        }
+    ],
+    "images": [
+        {
+            "id": 1,
+            "width": 800,
+            "height": 600,
+            "file_name": "street_scene.jpg",
+            "license": 1,
+            "date_captured": "2024-10-04T00:00:00+00:00"
+        },
+        {
+            "id": 2,
+            "width": 800,
+            "height": 600,
+            "file_name": "indoor_scene.jpg",
+            "license": 1,
+            "date_captured": "2024-10-04T00:00:00+00:00"
+        },
+        {
+            "id": 3,
+            "width": 800,
+            "height": 600,
+            "file_name": "nature_scene.jpg",
+            "license": 1,
+            "date_captured": "2024-10-04T00:00:00+00:00"
+        },
+        {
+            "id": 4,
+            "width": 800,
+            "height": 600,
+            "file_name": "abstract_shapes.jpg",
+            "license": 1,
+            "date_captured": "2024-10-04T00:00:00+00:00"
+        }
+    ],
+    "annotations": [
+        {
+            "id": 1,
+            "image_id": 1,
+            "category_id": 1,
+            "bbox": [
+                100,
+                450,
+                100,
+                50
+            ],
+            "area": 5000,
+            "iscrowd": 0
+        },
+        {
+            "id": 2,
+            "image_id": 1,
+            "category_id": 1,
+            "bbox": [
+                300,
+                450,
+                100,
+                50
+            ],
+            "area": 5000,
+            "iscrowd": 0
+        },
+        {
+            "id": 3,
+            "image_id": 1,
+            "category_id": 1,
+            "bbox": [
+                500,
+                450,
+                100,
+                50
+            ],
+            "area": 5000,
+            "iscrowd": 0
+        },
+        {
+            "id": 4,
+            "image_id": 1,
+            "category_id": 0,
+            "bbox": [
+                150,
+                350,
+                20,
+                70
+            ],
+            "area": 1400,
+            "iscrowd": 0
+        },
+        {
+            "id": 5,
+            "image_id": 1,
+            "category_id": 0,
+            "bbox": [
+                350,
+                350,
+                20,
+                70
+            ],
+            "area": 1400,
+            "iscrowd": 0
+        },
+        {
+            "id": 6,
+            "image_id": 1,
+            "category_id": 8,
+            "bbox": [
+                700,
+                200,
+                20,
+                100
+            ],
+            "area": 2000,
+            "iscrowd": 0
+        }
+    ],
+    "categories": [
+        {
+            "id": 0,
+            "name": "person",
+            "supercategory": "person"
+        },
+        {
+            "id": 1,
+            "name": "car",
+            "supercategory": "vehicle"
+        },
+        {
+            "id": 2,
+            "name": "bicycle",
+            "supercategory": "vehicle"
+        },
+        {
+            "id": 3,
+            "name": "dog",
+            "supercategory": "animal"
+        },
+        {
+            "id": 4,
+            "name": "cat",
+            "supercategory": "animal"
+        },
+        {
+            "id": 5,
+            "name": "tree",
+            "supercategory": "nature"
+        },
+        {
+            "id": 6,
+            "name": "building",
+            "supercategory": "structure"
+        },
+        {
+            "id": 7,
+            "name": "sign",
+            "supercategory": "object"
+        },
+        {
+            "id": 8,
+            "name": "traffic_light",
+            "supercategory": "object"
+        },
+        {
+            "id": 9,
+            "name": "stop_sign",
+            "supercategory": "object"
+        }
+    ]
+}

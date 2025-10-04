@@ -1,0 +1,19 @@
+# YOLO format annotations for nature_scene.jpg
+# Format: class_id center_x center_y width height
+# All coordinates normalized (0.0 to 1.0)
+
+# Trees (class_id = 5)
+5 0.1375 0.4167 0.025 0.1667
+5 0.3875 0.5417 0.025 0.25
+5 0.6375 0.4667 0.025 0.2
+
+# Rabbit (class_id = 3)
+3 0.28125 0.7917 0.0625 0.0833
+
+# Fox (class_id = 4)
+4 0.53125 0.7917 0.0625 0.0833
+
+# Birds (class_id = 15)
+15 0.2 0.1833 0.025 0.0333
+15 0.45 0.15 0.025 0.0333
+15 0.7 0.2167 0.025 0.0333

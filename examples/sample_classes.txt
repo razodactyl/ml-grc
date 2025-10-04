@@ -1,0 +1,10 @@
+0 person
+1 car
+2 bicycle
+3 dog
+4 cat
+5 tree
+6 building
+7 sign
+8 traffic_light
+9 stop_sign

@@ -1,0 +1,146 @@
+{
+    "classes": [
+        {
+            "id": 0,
+            "name": "person",
+            "description": "Human beings",
+            "color": "#FF0000",
+            "supercategory": "living"
+        },
+        {
+            "id": 1,
+            "name": "car",
+            "description": "Automobiles and cars",
+            "color": "#00FF00",
+            "supercategory": "vehicle"
+        },
+        {
+            "id": 2,
+            "name": "bicycle",
+            "description": "Bicycles and bikes",
+            "color": "#0000FF",
+            "supercategory": "vehicle"
+        },
+        {
+            "id": 3,
+            "name": "dog",
+            "description": "Dogs and canines",
+            "color": "#FFFF00",
+            "supercategory": "animal"
+        },
+        {
+            "id": 4,
+            "name": "cat",
+            "description": "Cats and felines",
+            "color": "#FF00FF",
+            "supercategory": "animal"
+        },
+        {
+            "id": 5,
+            "name": "tree",
+            "description": "Trees and vegetation",
+            "color": "#00FFFF",
+            "supercategory": "nature"
+        },
+        {
+            "id": 6,
+            "name": "building",
+            "description": "Buildings and structures",
+            "color": "#800000",
+            "supercategory": "structure"
+        },
+        {
+            "id": 7,
+            "name": "sign",
+            "description": "Road signs and signage",
+            "color": "#808000",
+            "supercategory": "object"
+        },
+        {
+            "id": 8,
+            "name": "traffic_light",
+            "description": "Traffic lights and signals",
+            "color": "#800080",
+            "supercategory": "object"
+        },
+        {
+            "id": 9,
+            "name": "stop_sign",
+            "description": "Stop signs",
+            "color": "#008000",
+            "supercategory": "object"
+        },
+        {
+            "id": 10,
+            "name": "table",
+            "description": "Tables and desks",
+            "color": "#808080",
+            "supercategory": "furniture"
+        },
+        {
+            "id": 11,
+            "name": "bookshelf",
+            "description": "Bookshelves and storage",
+            "color": "#C0C0C0",
+            "supercategory": "furniture"
+        },
+        {
+            "id": 12,
+            "name": "book",
+            "description": "Books and publications",
+            "color": "#FFA500",
+            "supercategory": "object"
+        },
+        {
+            "id": 13,
+            "name": "chair",
+            "description": "Chairs and seating",
+            "color": "#A52A2A",
+            "supercategory": "furniture"
+        },
+        {
+            "id": 14,
+            "name": "window",
+            "description": "Windows and openings",
+            "color": "#87CEEB",
+            "supercategory": "structure"
+        },
+        {
+            "id": 15,
+            "name": "bird",
+            "description": "Birds and flying animals",
+            "color": "#DDA0DD",
+            "supercategory": "animal"
+        }
+    ],
+    "supercategories": [
+        {
+            "name": "living",
+            "description": "Living beings"
+        },
+        {
+            "name": "vehicle",
+            "description": "Transportation vehicles"
+        },
+        {
+            "name": "animal",
+            "description": "Animals and pets"
+        },
+        {
+            "name": "nature",
+            "description": "Natural elements"
+        },
+        {
+            "name": "structure",
+            "description": "Buildings and structures"
+        },
+        {
+            "name": "object",
+            "description": "Objects and items"
+        },
+        {
+            "name": "furniture",
+            "description": "Furniture and fixtures"
+        }
+    ]
+}
