@@ -1,6 +1,6 @@
 # Annotations for nature_scene
 # Format: class_id x y width height class_name
-5 245 132 129 269 tree
-5 448 167 131 233 tree
-5 49 183 124 217 tree
+5 245 147 129 254 tree
+5 448 178 124 222 tree
+5 50 199 121 201 tree
 3 400 419 52 83 dog

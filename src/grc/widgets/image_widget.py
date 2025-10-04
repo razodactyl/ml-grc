@@ -3,7 +3,7 @@ import os
 
 from PyQt5.QtCore import Qt, QThread, pyqtSignal, QMutex, QMutexLocker, QWaitCondition, QPoint
 from PyQt5.QtWidgets import QLabel, QSizePolicy
-from PyQt5.QtGui import QImage, QPixmap, QPainter, QBrush, QColor
+from PyQt5.QtGui import QImage, QPixmap, QPainter, QBrush, QColor, QCursor
 
 from ..core.state import State, make_default_state
 from ..core.bounding_box import BoundingBox
@@ -145,10 +145,66 @@ class ImageWidget(QLabel):
         mouse_x = event.pos().x()
         mouse_y = event.pos().y()
 
-        # boxes = self.state.bounding_boxes
-        # for box in boxes:
-        #     box.selected = self.is_point_in_box(mouse_x, mouse_y, box)
-        #     self.thread.render(self.state)
+        if self.state.dragging and self.state.drag_mode:
+            boxes = self.state.bounding_boxes
+
+            if self.state.drag_mode == 'move' and self.state.drag_box_index >= 0:
+                # Handle box movement
+                box = boxes[self.state.drag_box_index]
+                if box.selected:
+                    dx = mouse_x - self.state.drag_start_pos[0]
+                    dy = mouse_y - self.state.drag_start_pos[1]
+
+                    # Update box position
+                    box.x = max(0, box.x + dx)
+                    box.y = max(0, box.y + dy)
+
+                    # Update drag start position for smooth dragging
+                    self.state = self.state._replace(drag_start_pos=[mouse_x, mouse_y])
+
+            elif self.state.drag_mode == 'resize' and self.state.drag_box_index >= 0:
+                # Handle box resizing
+                box = boxes[self.state.drag_box_index]
+                if box.selected and self.state.drag_handle:
+                    dx = mouse_x - self.state.drag_start_pos[0]
+                    dy = mouse_y - self.state.drag_start_pos[1]
+
+                    # Resize based on handle
+                    if self.state.drag_handle == 'nw':
+                        box.x = max(0, box.x + dx)
+                        box.y = max(0, box.y + dy)
+                        box.w = max(10, box.w - dx)
+                        box.h = max(10, box.h - dy)
+                    elif self.state.drag_handle == 'ne':
+                        box.y = max(0, box.y + dy)
+                        box.w = max(10, box.w + dx)
+                        box.h = max(10, box.h - dy)
+                    elif self.state.drag_handle == 'sw':
+                        box.x = max(0, box.x + dx)
+                        box.w = max(10, box.w - dx)
+                        box.h = max(10, box.h + dy)
+                    elif self.state.drag_handle == 'se':
+                        box.w = max(10, box.w + dx)
+                        box.h = max(10, box.h + dy)
+                    elif self.state.drag_handle == 'n':
+                        box.y = max(0, box.y + dy)
+                        box.h = max(10, box.h - dy)
+                    elif self.state.drag_handle == 's':
+                        box.h = max(10, box.h + dy)
+                    elif self.state.drag_handle == 'e':
+                        box.w = max(10, box.w + dx)
+                    elif self.state.drag_handle == 'w':
+                        box.x = max(0, box.x + dx)
+                        box.w = max(10, box.w - dx)
+
+                    # Update drag start position
+                    self.state = self.state._replace(drag_start_pos=[mouse_x, mouse_y])
+
+            self.state = self.state._replace(bounding_boxes=boxes)
+            self.thread.render(self.state)
+        else:
+            # Update cursor based on what's under the mouse
+            self.update_cursor(event.pos().x(), event.pos().y())
 
         self.state = self.state._replace(mouse_pos=[event.pos().x(), event.pos().y()])
         self.thread.render(self.state)
@@ -160,26 +216,65 @@ class ImageWidget(QLabel):
         # event.buttons() => bitmask of ALL buttons - i.e we can perform multi click etc.
         if event.buttons() & Qt.LeftButton:
             boxes = self.state.bounding_boxes
-            
+
             # Check if Ctrl is pressed for multi-selection
             ctrl_pressed = event.modifiers() & Qt.ControlModifier
-            
-            if ctrl_pressed:
-                # Multi-selection mode: toggle selection of clicked box
+
+            # Check if clicking on resize handles first
+            clicked_on_handle = False
+            if not ctrl_pressed:
+                for i, box in enumerate(boxes):
+                    if box.selected:
+                        handle = box.get_resize_handle_at_point(mouse_x, mouse_y)
+                        if handle:
+                            # Start resize operation
+                            self.state = self.state._replace(
+                                drag_mode='resize',
+                                drag_box_index=i,
+                                drag_handle=handle,
+                                drag_start_pos=[mouse_x, mouse_y],
+                                dragging=True
+                            )
+                            clicked_on_handle = True
+                            break
+
+            if not clicked_on_handle:
+                # Check for box selection or dragging
+                selected_any = False
                 for box in boxes:
                     if box.xy_in_bounds(mouse_x, mouse_y):
-                        box.selected = not box.selected
-            else:
-                # Single selection mode: select only clicked box
-                for box in boxes:
-                    box.selected = box.xy_in_bounds(mouse_x, mouse_y)
-            
-            self.thread.render(self.state)
-            self.state = self.state._replace(bounding_boxes=boxes)
-            
-            # Notify parent app about selection change
-            if self.parent_app:
-                self.parent_app.update_dropdown_for_selection()
+                        if ctrl_pressed:
+                            # Multi-selection mode: toggle selection of clicked box
+                            box.selected = not box.selected
+                        else:
+                            # Single selection mode: select only clicked box, deselect others
+                            for b in boxes:
+                                b.selected = (b is box)
+                        selected_any = True
+                        break
+
+                if not selected_any:
+                    # Clicking on empty space - deselect all if not Ctrl
+                    if not ctrl_pressed:
+                        for box in boxes:
+                            box.selected = False
+
+                self.thread.render(self.state)
+                self.state = self.state._replace(bounding_boxes=boxes)
+
+                # Notify parent app about selection change
+                if self.parent_app:
+                    self.parent_app.update_dropdown_for_selection()
+
+                # Start dragging if a box is selected
+                selected_boxes = [box for box in boxes if box.selected]
+                if selected_boxes and not ctrl_pressed:
+                    self.state = self.state._replace(
+                        drag_mode='move',
+                        drag_box_index=boxes.index(selected_boxes[0]) if len(selected_boxes) == 1 else -1,
+                        drag_start_pos=[mouse_x, mouse_y],
+                        dragging=True
+                    )
 
             self.state = self.state._replace(
                 drag_start_pos=[mouse_x, mouse_y],
@@ -192,7 +287,10 @@ class ImageWidget(QLabel):
             if self.state.dragging:
                 self.state = self.state._replace(
                     drag_end_pos=[event.pos().x(), event.pos().y()],
-                    dragging=False
+                    dragging=False,
+                    drag_mode=None,
+                    drag_box_index=-1,
+                    drag_handle=None
                 )
 
                 bounding_boxes = self.state.bounding_boxes
@@ -224,7 +322,7 @@ class ImageWidget(QLabel):
                         class_id = int(current_text.split(":")[0])
                         class_name = current_text.split(":", 1)[1].strip()
 
-                box = BoundingBox(x=x, y=y, w=w, h=h, selected=True, 
+                box = BoundingBox(x=x, y=y, w=w, h=h, selected=True,
                                 class_id=class_id, class_name=class_name)
 
                 if box.get_area() > 20:
@@ -233,6 +331,35 @@ class ImageWidget(QLabel):
                 self.state = self.state._replace(
                     bounding_boxes=bounding_boxes
                 )
+
+    def update_cursor(self, mouse_x, mouse_y):
+        """Update cursor based on what's under the mouse."""
+        if not self.state.dragging:
+            boxes = self.state.bounding_boxes
+
+            # Check if over resize handles first
+            for box in boxes:
+                if box.selected:
+                    handle = box.get_resize_handle_at_point(mouse_x, mouse_y)
+                    if handle:
+                        if handle in ['nw', 'se']:
+                            self.setCursor(QCursor(Qt.SizeFDiagCursor))  # Diagonal resize
+                        elif handle in ['ne', 'sw']:
+                            self.setCursor(QCursor(Qt.SizeBDiagCursor))  # Other diagonal resize
+                        elif handle in ['n', 's']:
+                            self.setCursor(QCursor(Qt.SizeVerCursor))    # Vertical resize
+                        elif handle in ['e', 'w']:
+                            self.setCursor(QCursor(Qt.SizeHorCursor))    # Horizontal resize
+                        return
+
+            # Check if over selected boxes for moving
+            for box in boxes:
+                if box.selected and box.xy_in_bounds(mouse_x, mouse_y):
+                    self.setCursor(QCursor(Qt.SizeAllCursor))  # Move cursor
+                    return
+
+            # Default cursor
+            self.setCursor(QCursor(Qt.CrossCursor))
 
     def keyPressEvent(self, event):
         """Handle keyboard events."""
