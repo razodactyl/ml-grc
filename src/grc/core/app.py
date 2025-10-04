@@ -2,13 +2,16 @@
 Main application class for GRC.
 """
 
-from PyQt5.QtWidgets import QMainWindow, QFileDialog, QDesktopWidget
+import os
+import sys
+from PyQt5.QtWidgets import QMainWindow, QFileDialog, QDesktopWidget, QPushButton
 
 from ..widgets.table_widget import TableWidget
 from ..widgets.image_widget import ImageWidget
 from ..widgets.image_controls import ImageControlsWidget
 from ..widgets.file_list_widget import FileListWidget
 from ..widgets.class_list_widget import ClassListWidget
+from ..core.bounding_box import BoundingBox
 
 
 class App(QMainWindow):
@@ -43,6 +46,8 @@ class App(QMainWindow):
 
         self.image_panel = ImageWidget(self)
         self.image_panel_controls = ImageControlsWidget()
+        # Set parent app reference for signal forwarding
+        self.image_panel_controls.parent_app = self
         self.tab_panel.tab2.layout.addWidget(self.image_panel)
         self.tab_panel.tab2.layout.addWidget(self.image_panel_controls)
         
@@ -52,9 +57,6 @@ class App(QMainWindow):
         # Connect navigation buttons
         self.image_panel_controls.prevButton.clicked.connect(self.previous_image)
         self.image_panel_controls.nextButton.clicked.connect(self.next_image)
-        
-        # Connect class selection
-        self.image_panel_controls.classSelect.activated.connect(self.on_class_changed)
 
         self.setCentralWidget(self.tab_panel)
 
@@ -93,6 +95,9 @@ class App(QMainWindow):
                 self.current_image_index = index.row()
                 self.image_panel.load_image(file_path)
 
+                # Load annotations for this image
+                self.load_annotations_for_image(file_path)
+
     def previous_image(self):
         """Navigate to previous image."""
         if self.image_files and self.current_image_index > 0:
@@ -112,90 +117,340 @@ class App(QMainWindow):
             self.image_panel.load_image(image_path)
             print(f"Loading image {self.current_image_index + 1}/{len(self.image_files)}: {image_path}")
 
+            # Load annotations for this image
+            self.load_annotations_for_image(image_path)
+
+    def load_annotations_for_image(self, image_path):
+        """Load annotations for the given image."""
+        try:
+            # Create annotations directory if it doesn't exist
+            image_dir = os.path.dirname(image_path)
+            annotations_dir = os.path.join(image_dir, "annotations")
+            os.makedirs(annotations_dir, exist_ok=True)
+
+            # Get image filename without extension
+            image_name = os.path.splitext(os.path.basename(image_path))[0]
+            annotation_file = os.path.join(annotations_dir, f"{image_name}.txt")
+
+            # Clear existing bounding boxes
+            if hasattr(self.image_panel, 'state') and self.image_panel.state:
+                # Create new state with empty bounding boxes
+                from ..core.state import make_default_state
+                new_state = make_default_state()
+                # Copy over any existing properties but clear bounding boxes
+                new_state = new_state._replace(bounding_boxes=[])
+                self.image_panel.state = new_state
+
+            # Load annotations if file exists
+            if os.path.exists(annotation_file):
+                print(f"Loading annotations from: {annotation_file}")
+                with open(annotation_file, 'r') as f:
+                    bounding_boxes = []
+                    for line_num, line in enumerate(f, 1):
+                        line = line.strip()
+                        if not line or line.startswith('#'):
+                            continue
+
+                        parts = line.split()
+                        if len(parts) >= 5:
+                            try:
+                                class_id = int(parts[0])
+                                x = int(parts[1])
+                                y = int(parts[2])
+                                w = int(parts[3])
+                                h = int(parts[4])
+                                class_name = parts[5] if len(parts) > 5 else f"Class_{class_id}"
+
+                                # Create bounding box
+                                box = BoundingBox(x=x, y=y, w=w, h=h, class_id=class_id, class_name=class_name)
+                                bounding_boxes.append(box)
+
+                            except (ValueError, IndexError) as e:
+                                print(f"Warning: Invalid annotation format at line {line_num}: {line}")
+                                continue
+
+                    # Update the image panel state with loaded annotations
+                    if hasattr(self.image_panel, 'state') and self.image_panel.state:
+                        self.image_panel.state = self.image_panel.state._replace(bounding_boxes=bounding_boxes)
+
+                    print(f"Loaded {len(bounding_boxes)} annotations for {image_name}")
+
+            # Re-render the image
+            if hasattr(self.image_panel, 'thread') and self.image_panel.thread:
+                self.image_panel.thread.render(self.image_panel.state)
+
+        except Exception as e:
+            print(f"Error loading annotations for {image_path}: {e}")
+
+    def save_annotations_for_current_image(self):
+        """Save annotations for the current image."""
+        try:
+            if not self.image_files or self.current_image_index >= len(self.image_files):
+                print("No current image to save annotations for")
+                return
+
+            current_image_path = self.image_files[self.current_image_index]
+
+            # Create annotations directory if it doesn't exist
+            image_dir = os.path.dirname(current_image_path)
+            annotations_dir = os.path.join(image_dir, "annotations")
+            os.makedirs(annotations_dir, exist_ok=True)
+
+            # Get image filename without extension
+            image_name = os.path.splitext(os.path.basename(current_image_path))[0]
+            annotation_file = os.path.join(annotations_dir, f"{image_name}.txt")
+
+            # Get current bounding boxes
+            if not hasattr(self.image_panel, 'state') or not self.image_panel.state:
+                print("No image state available for saving")
+                return
+
+            bounding_boxes = self.image_panel.state.bounding_boxes
+
+            # Save annotations to file
+            with open(annotation_file, 'w') as f:
+                f.write(f"# Annotations for {image_name}\n")
+                f.write("# Format: class_id x y width height class_name\n")
+
+                for box in bounding_boxes:
+                    if hasattr(box, 'class_id') and hasattr(box, 'class_name'):
+                        f.write(f"{box.class_id} {box.x} {box.y} {box.w} {box.h} {box.class_name}\n")
+
+            print(f"Saved {len(bounding_boxes)} annotations to: {annotation_file}")
+
+        except Exception as e:
+            print(f"Error saving annotations: {e}")
+
+    def reload_annotations_for_current_image(self):
+        """Reload annotations for the current image."""
+        try:
+            if not self.image_files or self.current_image_index >= len(self.image_files):
+                print("No current image to reload annotations for")
+                return
+
+            current_image_path = self.image_files[self.current_image_index]
+            print(f"Reloading annotations for: {current_image_path}")
+            self.load_annotations_for_image(current_image_path)
+
+        except Exception as e:
+            print(f"Error reloading annotations: {e}")
+
     def update_classes(self, classes):
         """Update the class dropdown with loaded classes."""
-        self.classes = classes
-        self.image_panel_controls.classSelect.clear()
-        for class_id, class_name in classes:
-            self.image_panel_controls.classSelect.addItem(f"{class_id}: {class_name}")
+        try:
+            if not classes:
+                print("Warning: No classes provided to update_classes")
+                return
+
+            self.classes = classes
+
+            if not hasattr(self, 'image_panel_controls') or not self.image_panel_controls:
+                print("Image panel controls not available for class update")
+                return
+
+            if not hasattr(self.image_panel_controls, 'classSelect'):
+                print("Class select dropdown not available for class update")
+                return
+
+            try:
+                self.image_panel_controls.classSelect.clear()
+                for class_id, class_name in classes:
+                    self.image_panel_controls.classSelect.addItem(f"{class_id}: {class_name}")
+                print(f"Updated class dropdown with {len(classes)} classes")
+            except Exception as e:
+                print(f"Error updating class dropdown: {e}")
+
+        except Exception as e:
+            print(f"Error in update_classes: {e}")
 
     def on_class_changed(self, class_name):
         """Handle class selection change."""
-        print(f"Class changed to: {class_name}")
-        
+        print(f"Class changed to: '{class_name}'")
+
+        # Validate class_name parameter
+        if not class_name or not isinstance(class_name, str):
+            print("Invalid class name provided")
+            return
+
         # Get selected bounding boxes
+        if not hasattr(self, 'image_panel') or not self.image_panel:
+            print("Image panel not available")
+            return
+
+        if not hasattr(self.image_panel, 'state') or not self.image_panel.state:
+            print("Image state not available")
+            return
+
         selected_boxes = [box for box in self.image_panel.state.bounding_boxes if box.selected]
-        
+
         if not selected_boxes:
             print("No annotations selected")
             return
-            
-        # Parse class information
-        if ":" in class_name:
-            class_id = int(class_name.split(":")[0])
-            new_class_name = class_name.split(":", 1)[1].strip()
-        else:
-            class_id = 0
-            new_class_name = class_name
-            
+
+        # Parse class information with error handling
+        try:
+            if ":" in class_name:
+                # Full format: "8: traffic_light"
+                class_parts = class_name.split(":", 1)
+                if len(class_parts) >= 1:
+                    class_id = int(class_parts[0])
+                    new_class_name = class_parts[1].strip() if len(class_parts) > 1 else ""
+                else:
+                    class_id = 0
+                    new_class_name = class_name
+            else:
+                # Just the ID: "8" - look up the name from self.classes
+                try:
+                    class_id = int(class_name)
+                    new_class_name = ""
+                    # Find the class name in self.classes
+                    if hasattr(self, 'classes') and self.classes:
+                        for cid, cname in self.classes:
+                            if cid == class_id:
+                                new_class_name = cname
+                                break
+                        if not new_class_name:
+                            print(f"Warning: No class name found for ID {class_id}")
+                            new_class_name = f"Class_{class_id}"
+                    else:
+                        print("No classes loaded")
+                        new_class_name = f"Class_{class_id}"
+                except ValueError:
+                    print(f"Invalid class ID: {class_name}")
+                    return
+
+            # Validate parsed values
+            if not new_class_name:
+                new_class_name = "Unknown"
+
+        except (ValueError, IndexError) as e:
+            print(f"Error parsing class name '{class_name}': {e}")
+            return
+
+        print(f"Parsed class: id={class_id}, name='{new_class_name}'")
+
         # Check if multiple boxes are selected
         if len(selected_boxes) > 1:
             # Show confirmation dialog for bulk change
-            from PyQt5.QtWidgets import QMessageBox
-            reply = QMessageBox.question(
-                self, 
-                'Confirm Class Change',
-                f'Change class of {len(selected_boxes)} selected annotations to "{new_class_name}"?',
-                QMessageBox.Yes | QMessageBox.No,
-                QMessageBox.No
-            )
-            
-            if reply != QMessageBox.Yes:
+            try:
+                from PyQt5.QtWidgets import QMessageBox
+                reply = QMessageBox.question(
+                    self,
+                    'Confirm Class Change',
+                    f'Change class of {len(selected_boxes)} selected annotations to "{new_class_name}"?',
+                    QMessageBox.Yes | QMessageBox.No,
+                    QMessageBox.No
+                )
+
+                if reply != QMessageBox.Yes:
+                    return
+            except Exception as e:
+                print(f"Error showing confirmation dialog: {e}")
                 return
-        
+
         # Update selected boxes
-        for box in selected_boxes:
-            box.class_id = class_id
-            box.class_name = new_class_name
-            
-        # Re-render the image
-        self.image_panel.thread.render(self.image_panel.state)
-        print(f"Updated {len(selected_boxes)} annotation(s) to class: {new_class_name}")
-        
-        # Update dropdown to reflect the change
-        self.update_dropdown_for_selection()
+        try:
+            for box in selected_boxes:
+                if hasattr(box, 'class_id') and hasattr(box, 'class_name'):
+                    print(f"Updating box: old class_id={box.class_id}, old class_name='{box.class_name}'")
+                    box.class_id = class_id
+                    box.class_name = new_class_name
+                    print(f"Updated box: new class_id={box.class_id}, new class_name='{box.class_name}'")
+                else:
+                    print(f"Warning: Bounding box missing class attributes: {box}")
+        except Exception as e:
+            print(f"Error updating bounding boxes: {e}")
+            return
+
+        # Re-render the image with error handling
+        try:
+            if hasattr(self.image_panel, 'thread') and self.image_panel.thread:
+                self.image_panel.thread.render(self.image_panel.state)
+                print(f"Updated {len(selected_boxes)} annotation(s) to class: {new_class_name}")
+            else:
+                print("Render thread not available")
+        except Exception as e:
+            print(f"Error rendering image: {e}")
+            return
+
+        # Don't call update_dropdown_for_selection here - it will override the user's selection
+        # The dropdown should remain on the class the user just selected
 
     def update_dropdown_for_selection(self):
         """Update dropdown based on current selection."""
-        selected_boxes = [box for box in self.image_panel.state.bounding_boxes if box.selected]
-        
-        if not selected_boxes:
-            # No selection, reset to first class
-            if self.classes:
-                self.image_panel_controls.classSelect.setCurrentIndex(0)
-        elif len(selected_boxes) == 1:
-            # Single selection, show that class
-            box = selected_boxes[0]
-            for i, (class_id, class_name) in enumerate(self.classes):
-                if class_id == box.class_id and class_name == box.class_name:
-                    self.image_panel_controls.classSelect.setCurrentIndex(i)
-                    break
-        else:
-            # Multiple selections, check if all same class
-            first_box = selected_boxes[0]
-            all_same_class = all(box.class_id == first_box.class_id and 
-                               box.class_name == first_box.class_name 
-                               for box in selected_boxes)
-            
-            if all_same_class:
-                # All same class, show that class
-                for i, (class_id, class_name) in enumerate(self.classes):
-                    if class_id == first_box.class_id and class_name == first_box.class_name:
-                        self.image_panel_controls.classSelect.setCurrentIndex(i)
-                        break
+        try:
+            # Check if required components exist
+            if not hasattr(self, 'image_panel') or not self.image_panel:
+                print("Image panel not available for dropdown update")
+                return
+
+            if not hasattr(self.image_panel, 'state') or not self.image_panel.state:
+                print("Image state not available for dropdown update")
+                return
+
+            if not hasattr(self, 'image_panel_controls') or not self.image_panel_controls:
+                print("Image panel controls not available for dropdown update")
+                return
+
+            if not hasattr(self.image_panel_controls, 'classSelect'):
+                print("Class select dropdown not available")
+                return
+
+            selected_boxes = [box for box in self.image_panel.state.bounding_boxes if box.selected]
+            print(f"update_dropdown_for_selection: {len(selected_boxes)} boxes selected")
+
+            if not selected_boxes:
+                # No selection, reset to first class
+                if hasattr(self, 'classes') and self.classes:
+                    try:
+                        print(f"Resetting to first class: {self.classes[0]}")
+                        self.image_panel_controls.classSelect.setCurrentIndex(0)
+                    except Exception as e:
+                        print(f"Error resetting dropdown index: {e}")
+            elif len(selected_boxes) == 1:
+                # Single selection, show that class
+                if hasattr(self, 'classes') and self.classes:
+                    try:
+                        box = selected_boxes[0]
+                        print(f"Single selection - box class: id={box.class_id}, name='{box.class_name}'")
+                        print(f"Available classes: {self.classes}")
+
+                        for i, (class_id, class_name) in enumerate(self.classes):
+                            print(f"Comparing with class {i}: id={class_id}, name='{class_name}'")
+                            if class_id == box.class_id and class_name == box.class_name:
+                                print(f"Found match at index {i}")
+                                self.image_panel_controls.classSelect.setCurrentIndex(i)
+                                break
+                        else:
+                            print("No matching class found in self.classes!")
+                    except Exception as e:
+                        print(f"Error updating single selection dropdown: {e}")
             else:
-                # Mixed classes, show "- Multiple Selected -"
-                self.image_panel_controls.classSelect.setCurrentText("- Multiple Selected -")
+                # Multiple selections, check if all same class
+                if hasattr(self, 'classes') and self.classes:
+                    try:
+                        first_box = selected_boxes[0]
+                        all_same_class = all(box.class_id == first_box.class_id and
+                                           box.class_name == first_box.class_name
+                                           for box in selected_boxes)
+
+                        if all_same_class:
+                            # All same class, show that class
+                            for i, (class_id, class_name) in enumerate(self.classes):
+                                if class_id == first_box.class_id and class_name == first_box.class_name:
+                                    self.image_panel_controls.classSelect.setCurrentIndex(i)
+                                    break
+                        else:
+                            # Mixed classes, show "- Multiple Selected -"
+                            try:
+                                self.image_panel_controls.classSelect.setCurrentText("- Multiple Selected -")
+                            except Exception as e:
+                                print(f"Error setting multiple selection text: {e}")
+                    except Exception as e:
+                        print(f"Error handling multiple selection dropdown: {e}")
+
+        except Exception as e:
+            print(f"Error in update_dropdown_for_selection: {e}")
 
     def openFileNamesDialog(self):
         """Open a file selection dialog (currently unused)."""

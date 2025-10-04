@@ -75,31 +75,43 @@ class ClassListWidget(QGroupBox):
                     line = line.strip()
                     if not line or line.startswith('#'):
                         continue
-                    
+
                     parts = line.split()
                     if len(parts) >= 2:
-                        class_id = parts[0]
+                        class_id_str = parts[0]
                         class_name = ' '.join(parts[1:])  # Join remaining parts as class name
-                        self.add_class_entry(model, class_id, class_name)
-                        classes.append((class_id, class_name))
+
+                        # Convert class_id to int for consistency with BoundingBox
+                        try:
+                            class_id = int(class_id_str)
+                        except ValueError:
+                            print(f"Warning: Invalid class_id '{class_id_str}' at line {line_num}: {line}")
+                            continue
+
+                        self.add_class_entry(model, class_id_str, class_name)
+                        classes.append((class_id, class_name))  # Store as int for consistency
                     else:
                         print(f"Warning: Invalid class format at line {line_num}: {line}")
-            
+
             # Notify parent app about loaded classes
             if self.parent_app:
                 self.parent_app.update_classes(classes)
-                        
+
         except Exception as e:
             print(f"Error loading classes file: {e}")
 
     def add_class_entry(self, model, class_id, class_name):
         """Add a class entry to the model."""
-        model.insertRow(0)
-        model.setData(model.index(0, self.ID), class_id)
-        model.setData(model.index(0, self.NAME), class_name)
+        # Add at the end of the model to maintain order consistency
+        row = model.rowCount()
+        model.insertRow(row)
+        model.setData(model.index(row, self.ID), class_id)
+        model.setData(model.index(row, self.NAME), class_name)
 
     def add_file_entry(self, model, path):
         filename = os.path.basename(path)
-        model.insertRow(0)
-        model.setData(model.index(0, self.ID), filename)
-        model.setData(model.index(0, self.NAME), path)
+        # Add at the end of the model to maintain order consistency
+        row = model.rowCount()
+        model.insertRow(row)
+        model.setData(model.index(row, self.ID), filename)
+        model.setData(model.index(row, self.NAME), path)

@@ -131,13 +131,7 @@ class ImageWidget(QLabel):
 
         self.state = make_default_state()
 
-        # Load a sample image if available, otherwise start with empty canvas
-        sample_image_path = "examples/sample_images/street_scene.jpg"
-        if os.path.exists(sample_image_path):
-            self.thread.load_image(sample_image_path)
-        else:
-            # Create a default canvas if no sample image is available
-            self.thread.canvas = self.thread.make_canvas(800, 600)
+        # Don't auto-load any image initially - wait for explicit loading
 
     def load_image(self, image_path):
         """Load an image from the given path."""

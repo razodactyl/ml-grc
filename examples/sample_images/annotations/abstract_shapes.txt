@@ -1,0 +1,2 @@
+# Annotations for abstract_shapes
+# Format: class_id x y width height class_name

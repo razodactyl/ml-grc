@@ -56,9 +56,18 @@ class FileListWidget(QGroupBox):
             self.parent_app.image_files = files
             self.parent_app.current_image_index = 0
 
-        # Add them all into the file list.
+        # Clear existing data and rebuild model in correct order
+        model = self.dataView.model()
+        model.removeRows(0, model.rowCount())
+
+        # Add files in the same order as the files array
         for file in files:
-            self.add_file_entry(self.dataView.model(), file)
+            self.add_file_entry(model, file)
+
+        # Load the first image if available
+        if self.parent_app and files:
+            self.parent_app.image_panel.load_image(files[0])
+            self.parent_app.load_annotations_for_image(files[0])
 
         return d
 
@@ -70,6 +79,8 @@ class FileListWidget(QGroupBox):
 
     def add_file_entry(self, model, path):
         filename = os.path.basename(path)
-        model.insertRow(0)
-        model.setData(model.index(0, self.FILENAME), filename)
-        model.setData(model.index(0, self.PATH), path)
+        # Add at the end of the model to maintain order consistency
+        row = model.rowCount()
+        model.insertRow(row)
+        model.setData(model.index(row, self.FILENAME), filename)
+        model.setData(model.index(row, self.PATH), path)

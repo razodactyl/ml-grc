@@ -3,9 +3,20 @@ Main entry point for GRC application.
 """
 
 import sys
+import os
 from PyQt5.QtWidgets import QApplication
 
-from .core.app import App
+# Add the src directory to the Python path for relative imports
+current_dir = os.path.dirname(os.path.abspath(__file__))
+src_dir = os.path.dirname(current_dir)
+if src_dir not in sys.path:
+    sys.path.insert(0, src_dir)
+
+try:
+    from grc.core.app import App
+except ImportError:
+    # Fallback for relative import when run as module
+    from .core.app import App
 
 
 def main():
