@@ -1,23 +1,14 @@
 # GRC - Glorified Rectangle Creator
 
-A modern PyQt5-based image annotation tool for creating bounding box annotations, designed for machine learning training data preparation with a professional dark theme UI.
-
-![GRC Screenshot](docs/screenshot.png)
+A quick-and-dirty PyQt5-based image annotation tool for creating bounding box annotations, designed for machine learning training data preparation.
 
 ## Features
-
-### Modern User Interface
-- **Professional Dark Theme**: Carefully crafted dark UI with accent colors for reduced eye strain during long annotation sessions
-- **Status Bar**: Real-time display of image info, zoom level, annotation count, and cursor position
-- **Keyboard Shortcut Hints**: In-app guidance for efficient workflow
-- **Responsive Layout**: Clean, organized workspace with proper spacing and visual hierarchy
 
 ### Annotation Capabilities
 - **Interactive Image Annotation**: Draw bounding boxes directly on images with mouse interactions
 - **Multi-tab Interface**: Separate configuration and annotation workspaces
 - **File Management**: Browse and select image directories with support for JPG, JPEG, PNG, BMP, TIFF, WebP, and GIF formats
 - **Class Management**: Define and manage object classes for annotations with search/filter
-- **Real-time Rendering**: Smooth, threaded rendering with live preview of annotations
 - **Zoom and Pan**: Zoom in/out (+/- keys or Ctrl+scroll) and pan (middle-click drag) for detailed annotation
 - **Multiple Export Formats**: Export annotations to YOLO, COCO, or native GRC JSON format
 - **Batch Processing**: Export all annotations to a chosen format in one operation
@@ -276,14 +267,6 @@ The application uses a carefully selected dark theme with the following key colo
 
 To customize, edit `src/grc/widgets/styles.py` and modify the `COLORS` dictionary or `MODERN_DARK_THEME` stylesheet.
 
-## Troubleshooting
-
-### Common Issues
-
-1. **Import Errors**: Ensure all dependencies are installed via `pip install -r requirements.txt`
-2. **Image Not Loading**: Check that the hardcoded image path in `image_widget.py` exists
-3. **Performance Issues**: Large images may cause rendering delays; consider resizing images beforehand
-
 ### System Requirements
 
 - **RAM**: Minimum 4GB recommended
@@ -300,7 +283,7 @@ To customize, edit `src/grc/widgets/styles.py` and modify the `COLORS` dictionar
 
 ## License
 
-See LICENSE file for details.
+MIT - Do with it whatever you want.
 
 ## Future Enhancements
 
