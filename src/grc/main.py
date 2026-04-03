@@ -2,8 +2,9 @@
 Main entry point for GRC application.
 """
 
-import sys
 import os
+import sys
+
 from PyQt5.QtWidgets import QApplication
 
 # Add the src directory to the Python path for relative imports
@@ -22,9 +23,9 @@ except ImportError:
 def main():
     """Main entry point for the GRC application."""
     app = QApplication(sys.argv)
-    ex = App()
+    App()
     sys.exit(app.exec_())
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

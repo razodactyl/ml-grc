@@ -1,0 +1,62 @@
+{
+  "image_width": 800,
+  "image_height": 600,
+  "bounding_boxes": [
+    {
+      "x": 49,
+      "y": 199,
+      "w": 122,
+      "h": 201,
+      "class_id": 5,
+      "class_name": "tree"
+    },
+    {
+      "x": 447,
+      "y": 179,
+      "w": 126,
+      "h": 221,
+      "class_id": 5,
+      "class_name": "tree"
+    },
+    {
+      "x": 250,
+      "y": 150,
+      "w": 123,
+      "h": 250,
+      "class_id": 5,
+      "class_name": "tree"
+    },
+    {
+      "x": 139,
+      "y": 92,
+      "w": 42,
+      "h": 37,
+      "class_id": 7,
+      "class_name": "sign"
+    },
+    {
+      "x": 345,
+      "y": 77,
+      "w": 31,
+      "h": 29,
+      "class_id": 7,
+      "class_name": "sign"
+    },
+    {
+      "x": 396,
+      "y": 422,
+      "w": 57,
+      "h": 81,
+      "class_id": 3,
+      "class_name": "dog"
+    },
+    {
+      "x": 547,
+      "y": 114,
+      "w": 27,
+      "h": 32,
+      "class_id": 7,
+      "class_name": "sign"
+    }
+  ]
+}

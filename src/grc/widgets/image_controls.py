@@ -1,79 +1,152 @@
-from PyQt5.QtWidgets import QWidget, QHBoxLayout, QGroupBox, QPushButton, QComboBox, QSizePolicy
+"""
+Modern image controls widget for GRC application.
+
+Provides navigation, save/reload controls with keyboard shortcuts.
+"""
+
+from PyQt5.QtWidgets import (
+    QHBoxLayout,
+    QLabel,
+    QPushButton,
+    QSizePolicy,
+    QSpacerItem,
+    QWidget,
+)
 
 
 class ImageControlsWidget(QWidget):
+    """Control bar for image navigation and annotation actions."""
+
     def __init__(self):
         super().__init__()
-
         self.classes = []
-
         self.init_ui()
 
     def init_ui(self):
-        self.prevButton = QPushButton("Previous")
-        self.nextButton = QPushButton("Next")
+        """Initialize the control bar UI."""
+        self.setObjectName("imageControls")
+        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self.setMinimumHeight(56)
 
-        self.saveButton = QPushButton("Save")
-        self.reloadButton = QPushButton("Reload")
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(16, 8, 16, 8)
+        layout.setSpacing(8)
 
-        self.formatSelect = QComboBox(self)
-        self.formatSelect.addItem("GRC (.json)", "grc")
-        self.formatSelect.addItem("YOLO (.txt)", "yolo")
-        self.formatSelect.addItem("COCO (.json)", "coco")
-        self.formatSelect.setCurrentIndex(0)  # Default to GRC format
-        self.formatSelect.activated[str].connect(self.format_changed)
+        # Navigation section
+        nav_label = QLabel("Navigation")
+        nav_label.setObjectName("subheading")
+        layout.addWidget(nav_label)
 
-        self.classSelect = QComboBox(self)
-        self.classSelect.addItem("Test")
-        self.classSelect.activated[str].connect(self.class_changed)
+        self.prevButton = self._create_button("◀ Previous", "Previous image (← / A)")
+        self.nextButton = self._create_button("Next ▶", "Next image (→ / D)")
 
+        layout.addWidget(self.prevButton)
+        layout.addWidget(self.nextButton)
+
+        # Spacer
+        layout.addSpacerItem(QSpacerItem(20, 0))
+
+        # Actions section
+        actions_label = QLabel("Actions")
+        actions_label.setObjectName("subheading")
+        layout.addWidget(actions_label)
+
+        self.saveButton = self._create_button("💾 Save", "Save annotations (S)", primary=True)
+        self.reloadButton = self._create_button("🔄 Reload", "Reload from disk (R)")
+
+        layout.addWidget(self.saveButton)
+        layout.addWidget(self.reloadButton)
+
+        # Stretch to push zoom controls to the right
+        layout.addStretch()
+
+        # Zoom section (right-aligned)
+        zoom_label = QLabel("Zoom")
+        zoom_label.setObjectName("subheading")
+        layout.addWidget(zoom_label)
+
+        self.zoomOutButton = self._create_button("−", "Zoom out (-)", small=True)
+        self.zoomResetButton = self._create_button("100%", "Reset zoom (0)", small=True)
+        self.zoomInButton = self._create_button("+", "Zoom in (+)", small=True)
+
+        layout.addWidget(self.zoomOutButton)
+        layout.addWidget(self.zoomResetButton)
+        layout.addWidget(self.zoomInButton)
+
+        # Connect signals
         self.prevButton.clicked.connect(self.clicked_prev)
         self.nextButton.clicked.connect(self.clicked_next)
         self.saveButton.clicked.connect(self.clicked_save)
         self.reloadButton.clicked.connect(self.clicked_reload)
+        self.zoomInButton.clicked.connect(self.clicked_zoom_in)
+        self.zoomOutButton.clicked.connect(self.clicked_zoom_out)
+        self.zoomResetButton.clicked.connect(self.clicked_zoom_reset)
 
-        self.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Fixed)
+        self.setLayout(layout)
 
-        hbox = QHBoxLayout()
-        hbox.addWidget(self.prevButton)
-        hbox.addWidget(self.nextButton)
-        hbox.addWidget(self.saveButton)
-        hbox.addWidget(self.reloadButton)
-        hbox.addWidget(self.formatSelect)
-        hbox.addWidget(self.classSelect)
+    def _create_button(
+        self, text: str, tooltip: str, primary: bool = False, small: bool = False
+    ) -> QPushButton:
+        """Create a styled button."""
+        btn = QPushButton(text)
+        btn.setToolTip(tooltip)
 
-        self.setLayout(hbox)
+        if primary:
+            btn.setObjectName("primaryButton")
+        if small:
+            btn.setFixedSize(36, 32)
+        else:
+            btn.setMinimumWidth(90)
+
+        return btn
+
+    def update_zoom_display(self, zoom_level: float):
+        """Update the zoom reset button text."""
+        self.zoomResetButton.setText(f"{int(zoom_level * 100)}%")
 
     def clicked_prev(self):
-        print("Clicked prev button.")
+        """Handle previous button click."""
+        if hasattr(self, "parent_app") and self.parent_app:
+            self.parent_app.previous_image()
 
     def clicked_next(self):
-        print("Clicked next button.")
+        """Handle next button click."""
+        if hasattr(self, "parent_app") and self.parent_app:
+            self.parent_app.next_image()
 
     def clicked_save(self):
-        print("Clicked save button.")
-        if hasattr(self, 'parent_app') and self.parent_app:
+        """Handle save button click."""
+        if hasattr(self, "parent_app") and self.parent_app:
             self.parent_app.save_annotations_for_current_image()
 
     def clicked_reload(self):
-        print("Clicked reload button.")
-        if hasattr(self, 'parent_app') and self.parent_app:
+        """Handle reload button click."""
+        if hasattr(self, "parent_app") and self.parent_app:
             self.parent_app.reload_annotations_for_current_image()
 
-    def format_changed(self, text):
-        """Handle format selection change."""
-        format_name = self.formatSelect.currentData()
-        print(f"Format changed to: {format_name}")
-        if hasattr(self, 'parent_app') and self.parent_app:
-            self.parent_app.set_annotation_format(format_name)
-        else:
-            print("No parent app available for format change")
+    def clicked_zoom_in(self):
+        """Handle zoom in button click."""
+        if (
+            hasattr(self, "parent_app")
+            and self.parent_app
+            and hasattr(self.parent_app, "image_panel")
+        ):
+            self.parent_app.image_panel.zoom_in()
 
-    def class_changed(self, text):
-        """Handle class selection change."""
-        print(f"Class selection changed to: {text}")
-        # Forward the class change to the parent app
-        if hasattr(self, 'parent_app') and self.parent_app:
-            self.parent_app.on_class_changed(text)
-        else:
-            print("No parent app available for class change")
+    def clicked_zoom_out(self):
+        """Handle zoom out button click."""
+        if (
+            hasattr(self, "parent_app")
+            and self.parent_app
+            and hasattr(self.parent_app, "image_panel")
+        ):
+            self.parent_app.image_panel.zoom_out()
+
+    def clicked_zoom_reset(self):
+        """Handle zoom reset button click."""
+        if (
+            hasattr(self, "parent_app")
+            and self.parent_app
+            and hasattr(self.parent_app, "image_panel")
+        ):
+            self.parent_app.image_panel.reset_zoom()

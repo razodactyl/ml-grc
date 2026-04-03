@@ -1,7 +1,7 @@
 # GRC - Glorified Rectangle Creator
 # Main package initialization
 
-from .main import main
+from .main import main as main
 
 __version__ = "1.0.0"
 __author__ = "Jonathan"

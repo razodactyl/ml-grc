@@ -1,0 +1,62 @@
+{
+  "image_width": 800,
+  "image_height": 600,
+  "bounding_boxes": [
+    {
+      "x": 97,
+      "y": 447,
+      "w": 107,
+      "h": 58,
+      "class_id": 7,
+      "class_name": "sign"
+    },
+    {
+      "x": 297,
+      "y": 446,
+      "w": 106,
+      "h": 57,
+      "class_id": 7,
+      "class_name": "sign"
+    },
+    {
+      "x": 496,
+      "y": 450,
+      "w": 107,
+      "h": 53,
+      "class_id": 7,
+      "class_name": "sign"
+    },
+    {
+      "x": 698,
+      "y": 194,
+      "w": 26,
+      "h": 112,
+      "class_id": 8,
+      "class_name": "traffic_light"
+    },
+    {
+      "x": 395,
+      "y": 117,
+      "w": 210,
+      "h": 291,
+      "class_id": 6,
+      "class_name": "building"
+    },
+    {
+      "x": 196,
+      "y": 146,
+      "w": 206,
+      "h": 261,
+      "class_id": 6,
+      "class_name": "building"
+    },
+    {
+      "x": 0,
+      "y": 92,
+      "w": 203,
+      "h": 315,
+      "class_id": 6,
+      "class_name": "building"
+    }
+  ]
+}

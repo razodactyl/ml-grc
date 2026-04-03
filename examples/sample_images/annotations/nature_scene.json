@@ -1,0 +1,31 @@
+{
+  "images": [
+    {
+      "id": 1,
+      "width": 800,
+      "height": 600,
+      "file_name": "image.jpg"
+    }
+  ],
+  "categories": [
+    {
+      "id": 1,
+      "name": "tree"
+    }
+  ],
+  "annotations": [
+    {
+      "id": 1,
+      "image_id": 1,
+      "category_id": 1,
+      "bbox": [
+        449,
+        182,
+        122,
+        218
+      ],
+      "area": 26596,
+      "iscrowd": 0
+    }
+  ]
+}

@@ -1,0 +1,22 @@
+{
+  "image_width": 800,
+  "image_height": 600,
+  "bounding_boxes": [
+    {
+      "x": 97,
+      "y": 498,
+      "w": 131,
+      "h": 29,
+      "class_id": 8,
+      "class_name": "traffic_light"
+    },
+    {
+      "x": 448,
+      "y": 248,
+      "w": 105,
+      "h": 105,
+      "class_id": 7,
+      "class_name": "sign"
+    }
+  ]
+}
