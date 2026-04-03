@@ -6,6 +6,44 @@ from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QBrush, QColor, QPen
 
 
+# Class color palette - distinct colors for different classes
+CLASS_COLORS = [
+    "#FF6B6B",  # Red
+    "#4ECDC4",  # Teal
+    "#45B7D1",  # Sky Blue
+    "#96CEB4",  # Sage
+    "#FFEAA7",  # Yellow
+    "#DDA0DD",  # Plum
+    "#98D8C8",  # Mint
+    "#F7DC6F",  # Gold
+    "#BB8FCE",  # Purple
+    "#85C1E9",  # Light Blue
+    "#F8B500",  # Orange
+    "#00CED1",  # Dark Cyan
+    "#FF69B4",  # Hot Pink
+    "#32CD32",  # Lime Green
+    "#FFD700",  # Gold
+    "#8A2BE2",  # Blue Violet
+    "#00FA9A",  # Medium Spring Green
+    "#DC143C",  # Crimson
+    "#00BFFF",  # Deep Sky Blue
+    "#FF4500",  # Orange Red
+]
+
+
+def get_class_color(class_id: int) -> str:
+    """
+    Get a color for a class ID.
+    
+    Args:
+        class_id: The class ID
+        
+    Returns:
+        Hex color string
+    """
+    return CLASS_COLORS[class_id % len(CLASS_COLORS)]
+
+
 class BoundingBox:
     """Represents a rectangular bounding box annotation."""
 
@@ -58,19 +96,24 @@ class BoundingBox:
 
         Args:
             painter (QPainter): The painter to draw on
+            phase: Animation phase for marching ants effect
         """
+        # Get class-specific color
+        class_color = QColor(get_class_color(self.class_id))
+        
         if self.selected:
             painter.setOpacity(0.5)
             # Draw selected outline with animated "marching ants" style
-            pen = QPen(Qt.white, 2, Qt.DashLine)
+            pen = QPen(class_color, 2, Qt.DashLine)
             pen.setDashPattern([4, 4])
             pen.setDashOffset(phase)
             painter.setPen(pen)
         else:
-            painter.setOpacity(0.2)
-            painter.setPen(Qt.white)
+            painter.setOpacity(0.3)
+            painter.setPen(QPen(class_color, 2))
 
         # Draw the rectangle
+        painter.setBrush(Qt.NoBrush)
         painter.drawRect(self.x, self.y, self.w, self.h)
 
         # Draw label with coordinates and class name
@@ -170,7 +213,12 @@ class BoundingBox:
             return
 
         painter.setOpacity(1.0)
-        painter.setBrush(QBrush(QColor("#FFFF00")))  # Yellow handles
+        
+        # Use class color for handles with slight variation
+        class_color = QColor(get_class_color(self.class_id))
+        handle_color = class_color.lighter(120)
+        
+        painter.setBrush(QBrush(handle_color))
         painter.setPen(QPen(QColor("#000000"), 1))  # Black border
 
         # Corner handles
@@ -192,6 +240,6 @@ class BoundingBox:
             (self.x - handle_size // 2, self.y + self.h // 2 - handle_size // 2),  # W
         ]
 
-        painter.setBrush(QBrush(QColor("#00FFFF")))  # Cyan for side handles
+        painter.setBrush(QBrush(handle_color.lighter(140)))  # Lighter for side handles
         for hx, hy in side_handles:
             painter.drawRect(hx, hy, handle_size, handle_size)

@@ -1,0 +1,48 @@
+{
+  "images": [
+    {
+      "id": 1,
+      "width": 800,
+      "height": 600,
+      "file_name": "image.jpg"
+    }
+  ],
+  "categories": [
+    {
+      "id": 1,
+      "name": "traffic_light"
+    },
+    {
+      "id": 2,
+      "name": "sign"
+    }
+  ],
+  "annotations": [
+    {
+      "id": 1,
+      "image_id": 1,
+      "category_id": 1,
+      "bbox": [
+        97,
+        498,
+        131,
+        29
+      ],
+      "area": 3799,
+      "iscrowd": 0
+    },
+    {
+      "id": 2,
+      "image_id": 1,
+      "category_id": 2,
+      "bbox": [
+        448,
+        248,
+        105,
+        105
+      ],
+      "area": 11025,
+      "iscrowd": 0
+    }
+  ]
+}

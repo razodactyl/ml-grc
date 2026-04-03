@@ -1,9 +1,12 @@
 """
 Main application class for GRC.
+
+This class serves as the main window and coordinator for the application.
+Business logic is delegated to services and controllers.
 """
 
 import os
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QImage
@@ -20,6 +23,7 @@ from PyQt5.QtWidgets import (
     QWidget,
 )
 
+from ..ui.controllers import AnnotationController, NavigationController
 from ..widgets.batch_widget import BatchWidget
 from ..widgets.class_list_widget import ClassListWidget
 from ..widgets.file_list_widget import FileListWidget
@@ -30,6 +34,8 @@ from ..widgets.status_bar import ModernStatusBar
 from ..widgets.styles import MODERN_DARK_THEME
 from ..widgets.table_widget import TableWidget
 from .annotation_formats import AnnotationFormatManager
+from .events import EventBus
+from .services import AnnotationService, ExportService, ImageService
 
 
 class App(QMainWindow):
@@ -43,29 +49,33 @@ class App(QMainWindow):
         # Apply modern dark theme
         self.setStyleSheet(MODERN_DARK_THEME)
 
-        self.data_dir: str = ""
-        self.current_image_index: int = 0
-        # List of image file paths currently loaded in the session
-        self.image_files: List[str] = []
-        # Optional list of (class_id, class_name) tuples loaded from class file
-        self.classes: List[Tuple[int, str]] = []
-        # Currently active class for new annotations
-        self.current_class_id: int = 0
-        self.current_class_name: str = "Unknown"
+        # Window geometry
         self.left = 0
         self.top = 0
         self.width = 1280
         self.height = 800
         self.setGeometry(self.left, self.top, self.width, self.height)
 
-        # Initialize annotation format manager
-        self.format_manager = AnnotationFormatManager()
+        # Initialize core infrastructure
+        self._init_services()
+
+        # Legacy state (for backward compatibility with widgets)
+        self.data_dir: str = ""
+        self.current_image_index: int = 0
+        self.image_files: List[str] = []
+        self.classes: List[Tuple[int, str]] = []
+        self.current_class_id: int = 0
+        self.current_class_name: str = "Unknown"
+        
+        # Auto-save and unsaved changes tracking
+        self._has_unsaved_changes: bool = False
+        self._auto_save_enabled: bool = True  # Can be toggled in settings
 
         self.tab_panel = TableWidget(self)
 
         # Create widgets and store references
         self.file_list = FileListWidget()
-        self.file_list.parent_app = self  # Connect to app for image list updates
+        self.file_list.parent_app = self  # TODO: Replace with event bus
         self.tab_panel.tab1.layout.addWidget(self.file_list)
 
         self.class_list = ClassListWidget()
@@ -150,6 +160,71 @@ class App(QMainWindow):
         self.show()
 
         # Format selector will be updated when format is set
+
+    def _init_services(self) -> None:
+        """Initialize services, controllers, and event bus."""
+        # Event bus for decoupled communication
+        self.event_bus = EventBus()
+
+        # Format manager
+        self.format_manager = AnnotationFormatManager()
+
+        # Services
+        self.image_service = ImageService(event_bus=self.event_bus)
+        self.annotation_service = AnnotationService(
+            format_manager=self.format_manager,
+            event_bus=self.event_bus,
+        )
+        self.export_service = ExportService(
+            format_manager=self.format_manager,
+            event_bus=self.event_bus,
+        )
+
+        # Controllers
+        self.navigation_controller = NavigationController(
+            image_service=self.image_service,
+            event_bus=self.event_bus,
+        )
+        self.annotation_controller = AnnotationController(
+            annotation_service=self.annotation_service,
+            event_bus=self.event_bus,
+        )
+
+        # Set up controller callbacks
+        self.navigation_controller.set_callbacks(
+            on_image_changed=self._on_image_changed,
+            on_navigation_state_changed=self._on_navigation_state_changed,
+        )
+        self.annotation_controller.set_callbacks(
+            on_annotations_changed=self._on_annotations_changed,
+            on_selection_changed=self._on_selection_changed,
+        )
+
+    def _on_image_changed(self, image_path: str, index: int, total: int) -> None:
+        """Handle image change from navigation controller."""
+        self.current_image_index = index - 1  # Convert to 0-based
+        if self.image_panel:
+            self.image_panel.load_image(image_path)
+            self.load_annotations_for_image(image_path)
+
+        # Update status bar
+        filename = os.path.basename(image_path)
+        self.status_bar.update_image_info(filename, index, total)
+
+    def _on_navigation_state_changed(self, can_previous: bool, can_next: bool) -> None:
+        """Handle navigation state change."""
+        self._update_navigation_controls()
+
+    def _on_annotations_changed(self, boxes: list) -> None:
+        """Handle annotations change from annotation controller."""
+        if hasattr(self.image_panel, "state") and self.image_panel.state:
+            self.image_panel.state = self.image_panel.state._replace(bounding_boxes=boxes)
+            if hasattr(self.image_panel, "thread"):
+                self.image_panel.thread.render(self.image_panel.state)
+
+    def _on_selection_changed(self, selected_boxes: list) -> None:
+        """Handle selection change from annotation controller."""
+        self.update_dropdown_for_selection()
 
     def _init_status_bar(self) -> None:
         """Create the modern status bar."""
@@ -236,73 +311,119 @@ class App(QMainWindow):
 
     def previous_image(self):
         """Navigate to previous image."""
-        if self.image_files and self.current_image_index > 0:
-            self.current_image_index -= 1
-            self.load_current_image()
+        # Use navigation controller if available
+        if hasattr(self, 'navigation_controller'):
+            image_path = self.navigation_controller.previous()
+            if image_path:
+                self.current_image_index = self.image_service.current_index
+                self.image_files = self.image_service.image_files
+        else:
+            # Fallback to legacy behavior
+            if self.image_files and self.current_image_index > 0:
+                self.current_image_index -= 1
+                self.load_current_image()
 
     def next_image(self):
         """Navigate to next image."""
-        if self.image_files and self.current_image_index < len(self.image_files) - 1:
-            self.current_image_index += 1
+        # Use navigation controller if available
+        if hasattr(self, 'navigation_controller'):
+            image_path = self.navigation_controller.next()
+            if image_path:
+                self.current_image_index = self.image_service.current_index
+                self.image_files = self.image_service.image_files
+        else:
+            # Fallback to legacy behavior
+            if self.image_files and self.current_image_index < len(self.image_files) - 1:
+                self.current_image_index += 1
+                self.load_current_image()
+
+    def go_to_first_image(self):
+        """Navigate to the first image."""
+        if self.image_files and self.current_image_index != 0:
+            self.current_image_index = 0
+            self.load_current_image()
+
+    def go_to_last_image(self):
+        """Navigate to the last image."""
+        if self.image_files and self.current_image_index != len(self.image_files) - 1:
+            self.current_image_index = len(self.image_files) - 1
             self.load_current_image()
 
     def load_current_image(self):
         """Load the current image based on index."""
-        if self.image_files and 0 <= self.current_image_index < len(self.image_files):
-            image_path = self.image_files[self.current_image_index]
-            self.image_panel.load_image(image_path)
-            print(
-                f"Loading image {self.current_image_index + 1}/{len(self.image_files)}: {image_path}"
-            )
+        # Sync with image service if available
+        if hasattr(self, 'image_service'):
+            self.image_service.image_files = self.image_files
+            image_path = self.image_service.go_to_image(self.current_image_index)
+            if image_path:
+                self.image_panel.load_image(image_path)
+                print(f"Loading image {self.current_image_index + 1}/{len(self.image_files)}: {image_path}")
 
-            # Update status bar
-            filename = os.path.basename(image_path)
-            self.status_bar.update_image_info(
-                filename, self.current_image_index + 1, len(self.image_files)
-            )
+                # Update status bar
+                filename = os.path.basename(image_path)
+                self.status_bar.update_image_info(filename, self.current_image_index + 1, len(self.image_files))
 
-            # Load annotations for this image
-            self.load_annotations_for_image(image_path)
+                # Load annotations for this image
+                self.load_annotations_for_image(image_path)
 
-            # Refresh statistics when images are loaded
-            self.refresh_statistics()
+                # Refresh statistics when images are loaded
+                self.refresh_statistics()
+            else:
+                print("No images available to load")
+                self.status_bar.update_image_info("No image loaded", 0, 0)
         else:
-            print("No images available to load")
-            self.status_bar.update_image_info("No image loaded", 0, 0)
+            # Legacy behavior
+            if self.image_files and 0 <= self.current_image_index < len(self.image_files):
+                image_path = self.image_files[self.current_image_index]
+                self.image_panel.load_image(image_path)
+                print(f"Loading image {self.current_image_index + 1}/{len(self.image_files)}: {image_path}")
 
-        # Always refresh navigation buttons based on current state
+                filename = os.path.basename(image_path)
+                self.status_bar.update_image_info(filename, self.current_image_index + 1, len(self.image_files))
+                self.load_annotations_for_image(image_path)
+                self.refresh_statistics()
+            else:
+                print("No images available to load")
+                self.status_bar.update_image_info("No image loaded", 0, 0)
+
         self._update_navigation_controls()
 
     def load_annotations_for_image(self, image_path):
-        """Load annotations for the given image using format manager."""
+        """Load annotations for the given image using annotation service."""
         try:
+            # Auto-save before loading new image if there are unsaved changes
+            self._auto_save_if_needed()
+            
             # Get image dimensions for format conversion
             image_width, image_height = self._get_image_dimensions(
                 default_width=800, default_height=600
             )
 
-            # Use format manager to load annotations from current format
-            annotation_path = self.format_manager.get_annotation_path(
-                image_path, self.format_manager.default_format
-            )
-            format_handler = self.format_manager.get_format(self.format_manager.default_format)
-
-            print(
-                f"Loading annotations from {annotation_path} (format: {self.format_manager.default_format})"
-            )
-            bounding_boxes = format_handler.load(annotation_path, image_width, image_height)
+            # Use annotation service if available
+            if hasattr(self, 'annotation_service'):
+                bounding_boxes = self.annotation_service.load_annotations_for_image(
+                    image_path, image_width, image_height
+                )
+            else:
+                # Fallback to direct format manager
+                annotation_path = self.format_manager.get_annotation_path(
+                    image_path, self.format_manager.default_format
+                )
+                format_handler = self.format_manager.get_format(self.format_manager.default_format)
+                print(f"Loading annotations from {annotation_path} (format: {self.format_manager.default_format})")
+                bounding_boxes = format_handler.load(annotation_path, image_width, image_height)
 
             # Clear existing bounding boxes and update with loaded ones
             if hasattr(self.image_panel, "state") and self.image_panel.state:
-                # Create new state with empty bounding boxes
                 from .state import make_default_state
-
                 new_state = make_default_state()
-                # Copy over any existing properties but set loaded bounding boxes
                 new_state = new_state._replace(bounding_boxes=bounding_boxes)
                 self.image_panel.state = new_state
 
             print(f"Loaded {len(bounding_boxes)} annotations for {os.path.basename(image_path)}")
+            
+            # Reset unsaved changes flag after loading
+            self._has_unsaved_changes = False
 
             # Re-render the image
             if hasattr(self.image_panel, "thread") and self.image_panel.thread:
@@ -312,7 +433,7 @@ class App(QMainWindow):
             print(f"Error loading annotations for {image_path}: {e}")
 
     def save_annotations_for_current_image(self):
-        """Save annotations for the current image using format manager."""
+        """Save annotations for the current image using annotation service."""
         try:
             if not self.image_files or self.current_image_index >= len(self.image_files):
                 print("No current image to save annotations for")
@@ -332,14 +453,76 @@ class App(QMainWindow):
 
             bounding_boxes = self.image_panel.state.bounding_boxes
 
-            # Use format manager to save annotations
-            # Always save in the common internal GRC format
-            self.format_manager.save_annotations(
-                current_image_path, bounding_boxes, image_width, image_height, format_name="grc"
-            )
+            # Use annotation service if available
+            if hasattr(self, 'annotation_service'):
+                self.annotation_service.save_annotations(
+                    current_image_path, bounding_boxes, image_width, image_height, format_name="grc"
+                )
+            else:
+                # Fallback to direct format manager
+                self.format_manager.save_annotations(
+                    current_image_path, bounding_boxes, image_width, image_height, format_name="grc"
+                )
+
+            # Mark as saved
+            self._has_unsaved_changes = False
+            print(f"Saved annotations for {os.path.basename(current_image_path)}")
 
         except Exception as e:
             print(f"Error saving annotations: {e}")
+
+    def _auto_save_if_needed(self) -> bool:
+        """
+        Auto-save current annotations if there are unsaved changes.
+        
+        Returns:
+            True if save was performed or not needed, False if save failed
+        """
+        if not self._has_unsaved_changes:
+            return True
+            
+        if not self._auto_save_enabled:
+            # Prompt user if auto-save is disabled
+            return self._prompt_save_changes()
+        
+        # Auto-save silently
+        try:
+            self.save_annotations_for_current_image()
+            return True
+        except Exception as e:
+            print(f"Auto-save failed: {e}")
+            return False
+
+    def _prompt_save_changes(self) -> bool:
+        """
+        Prompt user to save unsaved changes.
+        
+        Returns:
+            True if user saved or discarded, False if cancelled
+        """
+        if not self._has_unsaved_changes:
+            return True
+            
+        reply = QMessageBox.question(
+            self,
+            "Unsaved Changes",
+            "You have unsaved annotations. Would you like to save them?",
+            QMessageBox.Save | QMessageBox.Discard | QMessageBox.Cancel,
+            QMessageBox.Save,
+        )
+        
+        if reply == QMessageBox.Save:
+            self.save_annotations_for_current_image()
+            return True
+        elif reply == QMessageBox.Discard:
+            self._has_unsaved_changes = False
+            return True
+        else:
+            return False
+
+    def mark_unsaved_changes(self) -> None:
+        """Mark that there are unsaved annotation changes."""
+        self._has_unsaved_changes = True
 
     def reload_annotations_for_current_image(self):
         """Reload annotations for the current image."""
@@ -864,12 +1047,26 @@ class App(QMainWindow):
         except Exception as e:
             print(f"Error in update_dropdown_for_selection: {e}")
 
-    def openFileNamesDialog(self):
-        """Open a file selection dialog (currently unused)."""
-        QFileDialog.Options()
-        # options |= QFileDialog.DontUseNativeDialog
-        files = QFileDialog.getExistingDirectory(self, "Select Directory")
-        # files, _ = QFileDialog.getOpenFileNames(self, "QFileDialog.getOpenFileNames()", "",
-        #                                         "All Files (*);;Python Files (*.py)", options=options)
-        if files:
-            print(files)
+    def closeEvent(self, event):
+        """Handle application close - check for unsaved changes and clean up."""
+        # Check for unsaved changes
+        if self._has_unsaved_changes:
+            reply = QMessageBox.question(
+                self,
+                "Unsaved Changes",
+                "You have unsaved annotations. Would you like to save them before closing?",
+                QMessageBox.Save | QMessageBox.Discard | QMessageBox.Cancel,
+                QMessageBox.Save,
+            )
+            
+            if reply == QMessageBox.Save:
+                self.save_annotations_for_current_image()
+            elif reply == QMessageBox.Cancel:
+                event.ignore()
+                return
+            # Discard: continue with close
+        
+        # Clean up render thread to prevent crash
+        if hasattr(self, "image_panel") and self.image_panel:
+            self.image_panel.cleanup()
+        event.accept()

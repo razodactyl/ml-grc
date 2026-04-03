@@ -34,12 +34,16 @@ class RenderThread(QThread):
         self.animation_phase = 0.0
 
     def __del__(self):
-        self.mutex.lock()
-        self.abort = True
-        self.condition.wakeOne()
-        self.mutex.unlock()
-
-        self.wait()
+        # Guard against Qt C++ object already being destroyed
+        try:
+            self.mutex.lock()
+            self.abort = True
+            self.condition.wakeOne()
+            self.mutex.unlock()
+            self.wait()
+        except RuntimeError:
+            # Qt object already deleted, nothing to do
+            pass
 
     def make_canvas(self, width, height):
         im_np = np.ones((width, height, 3), dtype=np.uint8)
@@ -72,7 +76,7 @@ class RenderThread(QThread):
             self.condition.wakeOne()
 
     def run(self):
-        while True:
+        while not self.abort:
             self.mutex.lock()
             state = self.state
             canvas = self.canvas
@@ -116,13 +120,13 @@ class RenderThread(QThread):
 
                 painter.end()
 
-            if not self.restart:
+            if not self.restart and not self.abort:
                 self.renderedImage.emit(self.canvas)
 
             self.mutex.lock()
             # Advance animation phase for marching ants
             self.animation_phase = (self.animation_phase + 1.0) % 8.0
-            if not self.restart:
+            if not self.restart and not self.abort:
                 self.condition.wait(self.mutex)
             self.restart = False
             self.mutex.unlock()
@@ -146,6 +150,7 @@ class ImageWidget(QLabel):
         self.thread.renderedImage.connect(self.updatePixmap)
 
         self.thread.render()
+        self._cleanup_done = False
         # https://stackoverflow.com/questions/7829829/pyqt4-mousemove-event-without-mousepress
 
         self.state = make_default_state()
@@ -544,14 +549,59 @@ class ImageWidget(QLabel):
             self.redo()
             return
 
-        # Image navigation (left/right arrows or A/D)
-        if key in (Qt.Key_Left, Qt.Key_A):
-            if self.parent_app:
-                self.parent_app.previous_image()
+        # Copy / Paste / Duplicate
+        if modifiers & Qt.ControlModifier and key == Qt.Key_C:
+            self.copy_selected_boxes()
             return
-        if key in (Qt.Key_Right, Qt.Key_D):
+        if modifiers & Qt.ControlModifier and key == Qt.Key_V:
+            self.paste_boxes()
+            return
+        if modifiers & Qt.ControlModifier and key == Qt.Key_D:
+            self.duplicate_selected_boxes()
+            return
+
+        # Select All
+        if modifiers & Qt.ControlModifier and key == Qt.Key_A:
+            self.select_all_boxes()
+            return
+
+        # Nudge with arrow keys (when not in drag mode)
+        if not self.state.dragging:
+            nudge_amount = 1 if not (modifiers & Qt.ShiftModifier) else 10
+            if key == Qt.Key_Up:
+                self.nudge_selected_boxes(0, -nudge_amount)
+                return
+            if key == Qt.Key_Down:
+                self.nudge_selected_boxes(0, nudge_amount)
+                return
+            if key == Qt.Key_Left:
+                self.nudge_selected_boxes(-nudge_amount, 0)
+                return
+            if key == Qt.Key_Right:
+                self.nudge_selected_boxes(nudge_amount, 0)
+                return
+
+        # Image navigation (A/D for prev/next, arrows for nudge)
+        # Only use A/D for navigation when no boxes are selected
+        selected_count = sum(1 for box in self.state.bounding_boxes if box.selected)
+        if selected_count == 0:
+            if key == Qt.Key_A:
+                if self.parent_app:
+                    self.parent_app.previous_image()
+                return
+            if key == Qt.Key_D:
+                if self.parent_app:
+                    self.parent_app.next_image()
+                return
+
+        # Home / End for first/last image
+        if key == Qt.Key_Home:
             if self.parent_app:
-                self.parent_app.next_image()
+                self.parent_app.go_to_first_image()
+            return
+        if key == Qt.Key_End:
+            if self.parent_app:
+                self.parent_app.go_to_last_image()
             return
 
         # Save / Reload
@@ -573,6 +623,11 @@ class ImageWidget(QLabel):
             return
         if key == Qt.Key_0:
             self.reset_zoom()
+            return
+
+        # Toggle annotation visibility
+        if key == Qt.Key_H:
+            self.toggle_annotations_visible()
             return
 
         super().keyPressEvent(event)
@@ -645,8 +700,22 @@ class ImageWidget(QLabel):
         painter.drawPixmap(target_rect, zoomed)
 
     def updatePixmap(self, image):
+        if self._cleanup_done:
+            return
         self.pixmap = QPixmap.fromImage(image)
         self.update()
+
+    def cleanup(self):
+        """Stop the render thread and disconnect signals. Call before destruction."""
+        if self._cleanup_done:
+            return
+        self._cleanup_done = True
+        self.thread.renderedImage.disconnect(self.updatePixmap)
+        self.thread.mutex.lock()
+        self.thread.abort = True
+        self.thread.condition.wakeOne()
+        self.thread.mutex.unlock()
+        self.thread.wait()
 
     # --- Undo / Redo helpers -------------------------------------------------
 
@@ -706,6 +775,119 @@ class ImageWidget(QLabel):
         self.undo_stack.append(current)
         self._restore_boxes(next_state)
         print("Redid last annotation change")
+
+    # --- Clipboard Operations ---
+
+    def copy_selected_boxes(self):
+        """Copy selected boxes to internal clipboard."""
+        selected = [box for box in self.state.bounding_boxes if box.selected]
+        if not selected:
+            print("No boxes selected to copy")
+            return
+        self._clipboard = selected
+        print(f"Copied {len(selected)} box(es) to clipboard")
+
+    def paste_boxes(self):
+        """Paste boxes from clipboard with offset."""
+        if not hasattr(self, '_clipboard') or not self._clipboard:
+            print("No boxes in clipboard to paste")
+            return
+
+        self._push_undo_state()
+
+        # Paste with offset to avoid exact overlap
+        offset = 20
+        new_boxes = []
+        for box in self._clipboard:
+            new_box = BoundingBox(
+                x=box.x + offset,
+                y=box.y + offset,
+                w=box.w,
+                h=box.h,
+                selected=True,  # Pasted boxes are selected
+                class_id=box.class_id,
+                class_name=box.class_name,
+            )
+            new_boxes.append(new_box)
+
+        # Deselect all existing boxes, then add pasted boxes
+        for box in self.state.bounding_boxes:
+            box.selected = False
+
+        self.state = self.state._replace(
+            bounding_boxes=self.state.bounding_boxes + new_boxes
+        )
+        self.thread.render(self._state_for_render())
+        print(f"Pasted {len(new_boxes)} box(es)")
+
+        if self.parent_app:
+            self.parent_app.update_dropdown_for_selection()
+
+    def duplicate_selected_boxes(self):
+        """Duplicate selected boxes in place."""
+        selected = [box for box in self.state.bounding_boxes if box.selected]
+        if not selected:
+            print("No boxes selected to duplicate")
+            return
+
+        self._push_undo_state()
+
+        # Copy to clipboard and paste
+        self._clipboard = selected
+        self.paste_boxes()
+
+    # --- Selection Operations ---
+
+    def select_all_boxes(self):
+        """Select all bounding boxes."""
+        count = 0
+        for box in self.state.bounding_boxes:
+            box.selected = True
+            count += 1
+
+        if count > 0:
+            self.thread.render(self._state_for_render())
+            print(f"Selected all {count} box(es)")
+            if self.parent_app:
+                self.parent_app.update_dropdown_for_selection()
+
+    # --- Nudge Operations ---
+
+    def nudge_selected_boxes(self, dx: int, dy: int):
+        """Move selected boxes by delta pixels."""
+        selected = [box for box in self.state.bounding_boxes if box.selected]
+        if not selected:
+            return
+
+        self._push_undo_state()
+
+        for box in selected:
+            box.x = max(0, box.x + dx)
+            box.y = max(0, box.y + dy)
+
+        self.thread.render(self._state_for_render())
+
+    # --- Visibility Toggle ---
+
+    def toggle_annotations_visible(self):
+        """Toggle visibility of all annotations."""
+        if not hasattr(self, '_annotations_visible'):
+            self._annotations_visible = True
+
+        self._annotations_visible = not self._annotations_visible
+
+        # Store original boxes and clear/restore based on visibility
+        if self._annotations_visible:
+            if hasattr(self, '_hidden_boxes'):
+                self.state = self.state._replace(bounding_boxes=self._hidden_boxes)
+                delattr(self, '_hidden_boxes')
+            print("Annotations visible")
+        else:
+            self._hidden_boxes = list(self.state.bounding_boxes)
+            self.state = self.state._replace(bounding_boxes=[])
+            print("Annotations hidden")
+
+        self.thread.render(self._state_for_render())
 
     def _state_for_render(self, image_mouse_x=None, image_mouse_y=None):
         """

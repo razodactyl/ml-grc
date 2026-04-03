@@ -10,15 +10,15 @@
   "categories": [
     {
       "id": 1,
-      "name": "tree"
-    },
-    {
-      "id": 2,
       "name": "sign"
     },
     {
+      "id": 2,
+      "name": "traffic_light"
+    },
+    {
       "id": 3,
-      "name": "dog"
+      "name": "building"
     }
   ],
   "annotations": [
@@ -27,12 +27,12 @@
       "image_id": 1,
       "category_id": 1,
       "bbox": [
-        49,
-        199,
-        122,
-        201
+        97,
+        447,
+        107,
+        58
       ],
-      "area": 24522,
+      "area": 6206,
       "iscrowd": 0
     },
     {
@@ -40,12 +40,12 @@
       "image_id": 1,
       "category_id": 1,
       "bbox": [
-        447,
-        179,
-        126,
-        221
+        297,
+        446,
+        106,
+        57
       ],
-      "area": 27846,
+      "area": 6042,
       "iscrowd": 0
     },
     {
@@ -53,12 +53,12 @@
       "image_id": 1,
       "category_id": 1,
       "bbox": [
-        250,
-        150,
-        123,
-        250
+        496,
+        450,
+        107,
+        53
       ],
-      "area": 30750,
+      "area": 5671,
       "iscrowd": 0
     },
     {
@@ -66,25 +66,25 @@
       "image_id": 1,
       "category_id": 2,
       "bbox": [
-        139,
-        92,
-        42,
-        37
+        698,
+        194,
+        26,
+        112
       ],
-      "area": 1554,
+      "area": 2912,
       "iscrowd": 0
     },
     {
       "id": 5,
       "image_id": 1,
-      "category_id": 2,
+      "category_id": 3,
       "bbox": [
-        345,
-        77,
-        31,
-        29
+        395,
+        117,
+        210,
+        291
       ],
-      "area": 899,
+      "area": 61110,
       "iscrowd": 0
     },
     {
@@ -92,25 +92,25 @@
       "image_id": 1,
       "category_id": 3,
       "bbox": [
-        396,
-        422,
-        57,
-        81
+        196,
+        146,
+        206,
+        261
       ],
-      "area": 4617,
+      "area": 53766,
       "iscrowd": 0
     },
     {
       "id": 7,
       "image_id": 1,
-      "category_id": 2,
+      "category_id": 3,
       "bbox": [
-        547,
-        114,
-        27,
-        32
+        0,
+        92,
+        203,
+        315
       ],
-      "area": 864,
+      "area": 63945,
       "iscrowd": 0
     }
   ]
